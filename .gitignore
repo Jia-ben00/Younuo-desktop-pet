@@ -6,8 +6,7 @@ build/
 dist/
 *.exe
 
-# Voice / model assets (large or generated)
-v2/assets/voice/
+# Voice / model assets (generated clips are committed; keep only large/unwanted out)
 v2/assets/models/
 
 # IDE / OS
