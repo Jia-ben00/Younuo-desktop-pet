@@ -1,0 +1,21 @@
+# Build / runtime artifacts
+__pycache__/
+*.pyc
+*.spec
+build/
+dist/
+*.exe
+
+# Voice / model assets (large or generated)
+v2/assets/voice/
+v2/assets/models/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
+*.token
