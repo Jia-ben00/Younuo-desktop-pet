@@ -670,7 +670,7 @@ class PetWindow(QWidget):
         if self._follow:
             self._follow_timer = QTimer(self)
             self._follow_timer.timeout.connect(self._follow_mouse)
-            self._follow_timer.start(50)
+            self._follow_timer.start(30)
 
         if pet_cfg.get('auto_idle_talk', True):
             self._idle_timer = QTimer(self)
@@ -742,10 +742,20 @@ class PetWindow(QWidget):
         if not self._follow or self._drag_pos is not None: return
         try:
             c = QCursor.pos()
-            tx = c.x() - self.width() // 2 + 30
-            ty = c.y() + 20
+            tx = c.x() - self.width() // 2 + 15
+            ty = c.y() + 10
             cur = self.pos()
-            self.move(int(cur.x() + (tx - cur.x()) * 0.05), int(cur.y() + (ty - cur.y()) * 0.05))
+            dx = tx - cur.x()
+            dy = ty - cur.y()
+            dist = (dx*dx + dy*dy) ** 0.5
+            # 距离自适应：远时快速靠近，近时缓慢平滑
+            if dist > 200:
+                speed = 0.25
+            elif dist > 80:
+                speed = 0.18
+            else:
+                speed = 0.10
+            self.move(int(cur.x() + dx * speed), int(cur.y() + dy * speed))
         except Exception: pass
 
     # ---- 语气词 ----
@@ -878,7 +888,7 @@ class PetWindow(QWidget):
         if on and not hasattr(self, '_follow_timer'):
             self._follow_timer = QTimer(self)
             self._follow_timer.timeout.connect(self._follow_mouse)
-            self._follow_timer.start(50)
+            self._follow_timer.start(30)
         elif not on and hasattr(self, '_follow_timer'):
             self._follow_timer.stop()
             del self._follow_timer
