@@ -65,7 +65,7 @@ TONE_MAP = {
     'pat':   {'file': 'pat.wav',   'emotion': 'happy',     'text': '哼~才不是特意让你摸的呢~'},
     'poke':  {'file': 'poke.wav',  'emotion': 'surprised', 'text': '哇塞！你干嘛戳我脸啦！'},
     'drag':  {'file': 'drag.wav',  'emotion': 'angry',     'text': '喂喂喂！快放我下来啦！'},
-    'feed':  {'file': 'feed.wav',  'emotion': 'happy',     'text': '吧唧吧唧~这个好好吃！'},
+    'feed':  {'file': 'feed.wav',  'emotion': 'happy',     'text': '嗯~吧唧吧唧，好好吃！才不是谢谢你哦！'},
     'sleep': {'file': 'sleep.wav', 'emotion': 'tsundere',  'text': '不准松开我……陪在我身边嘛'},
 }
 
@@ -564,36 +564,32 @@ class HelpWindow(QWidget):
         layout.addWidget(subtitle)
         layout.addSpacing(10)
 
-        help_text = QLabel("""
-<b>【基本操作】</b>
-• 左键单击 — 跟尤诺聊天（LLM 对话）
-• 左键双击 — 摸头（哼~才不是特意让你摸的呢~）
-• 左键拖动 — 移动桌宠（喂喂喂！快放我下来啦！）
-• 滚轮 — 调整大小（80~500px）
-• 右键 — 打开菜单
-
-<b>【六情绪状态】</b>
-平静（呼吸微动）/ 开心（弹跳）/ 生气（抖动）/ 难过（缩小）/ 惊讶（拉伸+偷看动画）/ 傲娇（侧转）
-
-<b>【LLM 对话】</b>
-首次使用需配置 API：右键 → API 设置
-支持 OpenAI 兼容接口（DeepSeek / 通义 / 豆包 / OpenAI 等）
-尤诺会自动回复并输出情绪标签驱动动画
-
-<b>【语音】</b>
-默认 Edge TTS 在线语音（晓萱少女声线），可切换 Windows 本地 SAPI
-长文本（>80字或含代码）自动跳过语音，只显示气泡
-5条语气词：摸头/戳脸(哇塞)/拖拽/喂食/晚安
-
-<b>【特效】</b>
-LLM 回复可触发：心形 / 星光 / 音符 / 月亮符文 / 月蚀黑雾
-
-<b>【菜单】</b>
-跟我说话 / 喂食 / 晚安 / 随机语气词 / 调整大小 / 置顶开关 / 跟随鼠标 / 语音开关 / API 设置 / 使用说明 / 退出
-
-<b>【配置文件】</b>
-EXE 同目录 yuno_v5_config.json，保存 API 设置和对话历史
-""")
+        help_text = QLabel(
+            "<b>【基本操作】</b><br>"
+            "• 左键单击 — 跟尤诺聊天（LLM 对话）<br>"
+            "• 左键双击 — 摸头（哼~才不是特意让你摸的呢~）<br>"
+            "• 左键拖动 — 移动桌宠（喂喂喂！快放我下来啦！）<br>"
+            "• 滚轮 — 调整大小（80~500px）<br>"
+            "• 右键 — 打开菜单<br><br>"
+            "<b>【六情绪状态】</b><br>"
+            "平静（呼吸微动）/ 开心（弹跳）/ 生气（抖动）/ 难过（缩小）<br>"
+            "惊讶（拉伸+偷看动画）/ 傲娇（侧转）<br><br>"
+            "<b>【LLM 对话】</b><br>"
+            "首次使用需配置 API：右键 → API 设置<br>"
+            "支持 OpenAI 兼容接口（DeepSeek / 通义 / 豆包 / OpenAI 等）<br>"
+            "尤诺会自动回复并输出情绪标签驱动动画<br><br>"
+            "<b>【语音】</b><br>"
+            "默认 Edge TTS 在线语音（晓萱少女声线），可切换 Windows 本地 SAPI<br>"
+            "长文本（>80字或含代码）自动跳过语音，只显示气泡<br>"
+            "5条语气词：摸头 / 戳脸(哇塞) / 拖拽 / 喂食 / 晚安<br><br>"
+            "<b>【特效】</b><br>"
+            "LLM 回复可触发：心形 / 星光 / 音符 / 月亮符文 / 月蚀黑雾<br><br>"
+            "<b>【菜单】</b><br>"
+            "跟我说话 / 喂食 / 晚安 / 戳脸 / 随机语气词 / 调整大小<br>"
+            "置顶开关 / 跟随鼠标 / 语音开关 / API 设置 / 使用说明 / 退出<br><br>"
+            "<b>【配置文件】</b><br>"
+            "EXE 同目录 yuno_v5_config.json，保存 API 设置和对话历史"
+        )
         help_text.setWordWrap(True)
         help_text.setStyleSheet('font-size: 9.5pt; line-height: 1.6;')
 
