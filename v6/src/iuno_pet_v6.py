@@ -839,29 +839,29 @@ class V6ToggleItem(QWidget):
 
 
 # ============================================================
-# 菜单左上角视频帧动画组件
+# 菜单左上角挂角尤诺动画组件
 # ============================================================
-class MenuVideoWidget(QWidget):
+class CornerPetWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(56, 56)
+        self.setFixedSize(110, 110)
         self._frames = []
         self._frame_idx = 0
         self._load_frames()
         if self._frames:
             self._timer = QTimer(self)
             self._timer.timeout.connect(self._tick)
-            self._timer.start(100)  # 10fps
+            self._timer.start(80)  # ~12fps
 
     def _load_frames(self):
-        vdir = os.path.join(ANIMATION_DIR, 'menu_video')
-        if not os.path.isdir(vdir):
+        pdir = os.path.join(ANIMATION_DIR, 'corner_pet')
+        if not os.path.isdir(pdir):
             return
-        files = sorted([f for f in os.listdir(vdir) if f.endswith('.png')])
+        files = sorted([f for f in os.listdir(pdir) if f.endswith('.png')])
         for f in files:
-            pix = QPixmap(os.path.join(vdir, f))
+            pix = QPixmap(os.path.join(pdir, f))
             if not pix.isNull():
-                self._frames.append(pix.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self._frames.append(pix)
 
     def _tick(self):
         self._frame_idx = (self._frame_idx + 1) % len(self._frames)
@@ -873,13 +873,11 @@ class MenuVideoWidget(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
         pix = self._frames[self._frame_idx]
-        x = (self.width() - pix.width()) // 2
-        y = (self.height() - pix.height()) // 2
-        # 圆角裁剪
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(x, y, pix.width(), pix.height()), 8, 8)
-        p.setClipPath(path)
-        p.drawPixmap(x, y, pix)
+        # 保持比例，居中绘制
+        scaled = pix.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        x = (self.width() - scaled.width()) // 2
+        y = (self.height() - scaled.height()) // 2
+        p.drawPixmap(x, y, scaled)
         p.end()
 
     def cleanup(self):
@@ -888,6 +886,8 @@ class MenuVideoWidget(QWidget):
                 self._timer.stop()
         except Exception:
             pass
+
+
 
 
 class V6Menu(QWidget):
@@ -902,38 +902,40 @@ class V6Menu(QWidget):
         self._size_buttons = {}
         self._outside_timer = QTimer(self)
         self._outside_timer.timeout.connect(self._check_outside)
+        self._corner_pet = None
         self._build_ui()
+        # 挂角尤诺动画（左上角，部分超出菜单边界）
+        self._corner_pet = CornerPetWidget(self)
+        self._corner_pet.move(-20, -30)
+        self._corner_pet.show()
+        self._corner_pet.raise_()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(1)
 
-        # 顶部区域：左上角视频动画 + 右上角关闭按钮
-        top_bar = QWidget()
-        top_bar.setFixedHeight(60)
-        tbl = QHBoxLayout(top_bar)
-        tbl.setContentsMargins(0, 0, 0, 0)
-        self._menu_video = MenuVideoWidget()
-        tbl.addWidget(self._menu_video)
-        tbl.addStretch()
+        # 顶部留白（给挂角动画留出空间）
+        layout.addSpacing(50)
+
+        # 右上角关闭按钮
         close_btn = QPushButton('×')
-        close_btn.setFixedSize(28, 28)
+        close_btn.setFixedSize(26, 26)
         close_btn.setCursor(Qt.PointingHandCursor)
         close_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(180,140,220,40); color: #d0b0e8;
-                border: 1px solid rgba(180,140,220,80); border-radius: 14px;
-                font-size: 16pt; font-weight: bold; font-family: "Microsoft YaHei";
+                background: rgba(40,30,70,180); color: #e0c8f0;
+                border: 1px solid rgba(212,175,55,100); border-radius: 13px;
+                font-size: 14pt; font-weight: bold; font-family: "Microsoft YaHei";
             }
             QPushButton:hover {
-                background: rgba(220,100,100,120); color: #fff;
-                border-color: rgba(255,150,150,150);
+                background: rgba(200,80,80,160); color: #fff;
+                border-color: rgba(255,150,150,180);
             }
         """)
         close_btn.clicked.connect(self.close)
-        tbl.addWidget(close_btn)
-        layout.addWidget(top_bar)
+        close_btn.move(self.width() - 36, 8)
+        close_btn.setParent(self)
 
         main_btn = QPushButton('  跟我说话')
         main_btn.setFixedHeight(40)
@@ -1062,25 +1064,46 @@ class V6Menu(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
-        grad = QLinearGradient(0, 0, 0, h)
-        grad.setColorAt(0, QColor(20, 15, 45, 245))
-        grad.setColorAt(0.5, QColor(30, 20, 60, 245))
-        grad.setColorAt(1, QColor(40, 25, 75, 245))
+        # 星空深蓝紫渐变背景
+        grad = QLinearGradient(0, 0, w, h)
+        grad.setColorAt(0, QColor(15, 12, 40, 250))
+        grad.setColorAt(0.3, QColor(25, 18, 55, 250))
+        grad.setColorAt(0.7, QColor(35, 22, 65, 250))
+        grad.setColorAt(1, QColor(20, 15, 50, 250))
         p.setBrush(grad)
         p.setPen(Qt.NoPen)
-        p.drawRoundedRect(QRectF(0, 0, w, h), 16, 16)
-        p.setPen(QPen(QColor(180, 140, 220, 150), 1))
+        p.drawRoundedRect(QRectF(0, 0, w, h), 18, 18)
+        # 金色内边框
+        p.setPen(QPen(QColor(212, 175, 55, 120), 1.5))
         p.setBrush(Qt.NoBrush)
-        p.drawRoundedRect(QRectF(1, 1, w-2, h-2), 15, 15)
-        p.setBrush(QColor(255, 230, 150, 80))
-        for sx, sy, sr in [(80, 12, 1.2), (120, 20, 0.8), (180, 10, 1), (20, h-30, 1), (w-60, h-20, 1.2)]:
+        p.drawRoundedRect(QRectF(2, 2, w-4, h-4), 16, 16)
+        # 四角金色装饰（小圆弧）
+        p.setPen(QPen(QColor(230, 200, 120, 200), 2))
+        corner_size = 12
+        # 左上角
+        p.drawArc(QRectF(4, 4, corner_size*2, corner_size*2), 90*16, 90*16)
+        # 右上角
+        p.drawArc(QRectF(w-4-corner_size*2, 4, corner_size*2, corner_size*2), 0, 90*16)
+        # 左下角
+        p.drawArc(QRectF(4, h-4-corner_size*2, corner_size*2, corner_size*2), 180*16, 90*16)
+        # 右下角
+        p.drawArc(QRectF(w-4-corner_size*2, h-4-corner_size*2, corner_size*2, corner_size*2), 270*16, 90*16)
+        # 星星
+        p.setBrush(QColor(255, 230, 150, 100))
+        p.setPen(Qt.NoPen)
+        import random
+        random.seed(42)
+        for _ in range(15):
+            sx = random.randint(30, w-30)
+            sy = random.randint(60, h-30)
+            sr = random.uniform(0.5, 1.5)
             p.drawEllipse(QPointF(sx, sy), sr, sr)
         p.end()
 
     def closeEvent(self, e):
         self._outside_timer.stop()
-        if hasattr(self, '_menu_video'):
-            self._menu_video.cleanup()
+        if self._corner_pet:
+            self._corner_pet.cleanup()
         self.closed.emit()
         super().closeEvent(e)
 
