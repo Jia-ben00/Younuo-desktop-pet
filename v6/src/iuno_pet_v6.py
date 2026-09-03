@@ -1015,7 +1015,7 @@ class V6Menu(QWidget):
 # ============================================================
 
 # ============================================================
-# 尤诺翘腿动画窗口（左上角装饰）
+# 尤诺翘腿动画窗口（左上角装饰，单图程序动画）
 # ============================================================
 class LegSwingWindow(QWidget):
     def __init__(self, parent=None):
@@ -1024,45 +1024,80 @@ class LegSwingWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.setFixedSize(120, 120)
+        self.setFixedSize(140, 140)
 
-        self._frames = []
-        self._frame_idx = 0
-        self._load_frames()
+        self._base_pix = None
+        self._load_base()
 
-        if self._frames:
+        if self._base_pix and not self._base_pix.isNull():
             self._timer = QTimer(self)
             self._timer.timeout.connect(self._tick)
-            self._timer.start(200)  # 5fps，翘腿动画
+            self._timer.start(33)  # ~30fps
+
+        self._time = 0.0
+        self._tsundere_start = -10  # 傲娇转头开始时间（-10表示不在傲娇状态）
 
         # 放置在屏幕左上角
         screen = QApplication.primaryScreen().geometry()
         self.move(10, 10)
 
-    def _load_frames(self):
-        leg_dir = os.path.join(ANIMATION_DIR, 'leg_swing')
-        if not os.path.isdir(leg_dir):
-            return
-        for i in range(1, 5):
-            path = os.path.join(leg_dir, f'frame_{i}.png')
-            if os.path.exists(path):
-                pix = QPixmap(path)
-                if not pix.isNull():
-                    self._frames.append(pix.scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+    def _load_base(self):
+        path = os.path.join(ANIMATION_DIR, 'leg_swing', 'base.png')
+        if os.path.exists(path):
+            pix = QPixmap(path)
+            if not pix.isNull():
+                self._base_pix = pix.scaled(130, 130, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     def _tick(self):
-        self._frame_idx = (self._frame_idx + 1) % len(self._frames)
+        self._time += 0.033
+        # 每6秒触发一次傲娇转头，持续1.2秒
+        cycle = self._time % 6.0
+        if cycle < 0.05 and self._tsundere_start < 0:
+            self._tsundere_start = self._time
+        if self._tsundere_start > 0 and self._time - self._tsundere_start > 1.2:
+            self._tsundere_start = -10
         self.update()
 
     def paintEvent(self, e):
-        if not self._frames:
+        if not self._base_pix or self._base_pix.isNull():
             return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
-        pix = self._frames[self._frame_idx]
-        x = (self.width() - pix.width()) // 2
-        y = (self.height() - pix.height()) // 2
-        p.drawPixmap(x, y, pix)
+        p.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        t = self._time
+        w, h = self.width(), self.height()
+        pix_w, pix_h = self._base_pix.width(), self._base_pix.height()
+
+        # 计算动画参数
+        # 1. 呼吸浮动（上下轻微浮动）
+        breath_y = math.sin(t * 2.0) * 1.5
+        # 2. 脚尖晃动（整体轻微旋转，模拟翘腿脚尖晃动）
+        leg_rot = math.sin(t * 2.5) * 1.2
+        # 3. 傲娇转头（别过头，持续1.2秒，平滑进出）
+        tsundere_rot = 0.0
+        if self._tsundere_start > 0:
+            elapsed = t - self._tsundere_start
+            if 0 <= elapsed <= 1.2:
+                # 平滑进出：0->1->0
+                if elapsed < 0.3:
+                    progress = elapsed / 0.3
+                elif elapsed > 0.9:
+                    progress = max(0, (1.2 - elapsed) / 0.3)
+                else:
+                    progress = 1.0
+                tsundere_rot = -6.0 * progress  # 向左转头6度
+
+        total_rot = leg_rot + tsundere_rot
+
+        # 绘制（带旋转和浮动）
+        cx = w / 2
+        cy = h / 2 + breath_y
+        p.save()
+        p.translate(cx, cy)
+        p.rotate(total_rot)
+        p.drawPixmap(-pix_w // 2, -pix_h // 2, self._base_pix)
+        p.restore()
         p.end()
 
     def cleanup(self):
@@ -1071,6 +1106,7 @@ class LegSwingWindow(QWidget):
                 self._timer.stop()
         except Exception:
             pass
+
 
 
 class PetWindow(QWidget):
