@@ -368,10 +368,16 @@ class DangoWidget(QWidget):
     def enterEvent(self, e):
         self._mouse_inside = True
         self.update()
+        super().enterEvent(e)
 
     def leaveEvent(self, e):
         self._mouse_inside = False
         self.update()
+        super().leaveEvent(e)
+
+    def mousePressEvent(self, e):
+        # 忽略事件，确保传播到父窗口 PetWindow 处理拖拽/点击
+        e.ignore()
 
     def mouseMoveEvent(self, e):
         w, h = self.width(), self.height()
@@ -379,6 +385,7 @@ class DangoWidget(QWidget):
             self._mouse_x = max(0, min(1, e.x() / w))
             self._mouse_y = max(0, min(1, e.y() / h))
         self.update()
+        super().mouseMoveEvent(e)
 
     def _render(self):
         p = QPainter(self)
