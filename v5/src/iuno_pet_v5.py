@@ -13,15 +13,15 @@ r"""
 """
 import sys, os, json, re, time, random, traceback, tempfile, subprocess, math
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction,
-                             QInputDialog, QLineEdit, QScrollArea, QLabel,
-                             QVBoxLayout, QPushButton)
+from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QHBoxLayout, QVBoxLayout,
+                             QInputDialog, QLineEdit, QScrollArea, QLabel, QPushButton)
 from PyQt5.QtCore import (Qt, QTimer, QPoint, QPointF, QRectF, QSize,
                             pyqtSignal, QUrl, QObject, QThread)
-from PyQt5.QtGui import (QPainter, QPixmap, QImage, QColor, QFont,
+from PyQt5.QtGui import (QPainter, QPixmap, QImage, QColor, QFont, QIcon,
                            QCursor, QLinearGradient, QRadialGradient, QBrush,
                            QPen, QPolygonF, QPainterPath, QTransform)
 from PyQt5.QtMultimedia import QSoundEffect
+from PyQt5.QtSvg import QSvgRenderer
 
 # ============================================================
 # 资源路径
@@ -691,6 +691,324 @@ class AnimeMenu(QMenu):
             QMenu::separator { height: 1px; background: rgba(170,140,215,100); margin: 5px 14px; }
         """)
 
+
+# ============================================================
+# V6 月夜星空主题菜单（纯QSS+SVG图标+轻量QWidget）
+# ============================================================
+_svg_cache = {}
+def load_svg_icon(name, size=20):
+    key = (name, size)
+    if key in _svg_cache:
+        return _svg_cache[key]
+    path = os.path.join(ASSETS, 'icons', f'{name}.svg')
+    if not os.path.exists(path):
+        pm = QPixmap(size, size)
+        pm.fill(Qt.transparent)
+        _svg_cache[key] = pm
+        return pm
+    renderer = QSvgRenderer(path)
+    pm = QPixmap(size, size)
+    pm.fill(Qt.transparent)
+    painter = QPainter(pm)
+    renderer.render(painter)
+    painter.end()
+    _svg_cache[key] = pm
+    return pm
+
+
+class V6SectionTitle(QWidget):
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(28)
+        self._text = text
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setFont(QFont('Microsoft YaHei', 10, QFont.Bold))
+        p.setPen(QColor('#e8c870'))
+        p.drawText(QRectF(10, 0, 80, self.height()), Qt.AlignVCenter | Qt.AlignLeft, self._text)
+        p.setPen(QPen(QColor(120, 90, 160, 100), 1))
+        p.drawLine(90, self.height()//2, self.width()-10, self.height()//2)
+        p.end()
+
+
+class V6MenuItem(QWidget):
+    clicked = pyqtSignal()
+    def __init__(self, icon_name, text, parent=None):
+        super().__init__(parent)
+        self._icon = icon_name
+        self._text = text
+        self._hover = False
+        self.setFixedHeight(36)
+        self.setCursor(Qt.PointingHandCursor)
+        self._icon_pm = load_svg_icon(icon_name, 20)
+        self._arrow_pm = load_svg_icon('arrow', 16)
+    def mousePressEvent(self, e):
+        self.clicked.emit()
+    def enterEvent(self, e):
+        self._hover = True; self.update()
+    def leaveEvent(self, e):
+        self._hover = False; self.update()
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        if self._hover:
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(212, 175, 55, 35))
+            p.drawRoundedRect(QRectF(4, 2, self.width()-8, self.height()-4), 8, 8)
+        if not self._icon_pm.isNull():
+            p.drawPixmap(14, (self.height()-20)//2, self._icon_pm)
+        p.setFont(QFont('Microsoft YaHei', 10))
+        p.setPen(QColor('#d8c8e8'))
+        p.drawText(QRectF(44, 0, self.width()-80, self.height()), Qt.AlignVCenter | Qt.AlignLeft, self._text)
+        if not self._arrow_pm.isNull():
+            p.drawPixmap(self.width()-28, (self.height()-16)//2, self._arrow_pm)
+        p.end()
+
+
+class V6MoonToggle(QWidget):
+    toggled = pyqtSignal(bool)
+    def __init__(self, checked=False, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(48, 26)
+        self._checked = checked
+        self.setCursor(Qt.PointingHandCursor)
+        self._on_pm = load_svg_icon('moon_on', 20)
+        self._off_pm = load_svg_icon('moon_off', 20)
+    def mousePressEvent(self, e):
+        self._checked = not self._checked
+        self.toggled.emit(self._checked)
+        self.update()
+    def set_checked(self, checked):
+        if self._checked != checked:
+            self._checked = checked
+            self.update()
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(40, 30, 65, 200) if not self._checked else QColor(60, 45, 90, 200))
+        p.drawRoundedRect(QRectF(0, 0, w, h), h//2, h//2)
+        p.setPen(QPen(QColor(120, 90, 160, 120), 1))
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(QRectF(0.5, 0.5, w-1, h-1), h//2, h//2)
+        icon = load_svg_icon('moon_on' if self._checked else 'moon_off', 20)
+        x = w - 23 if self._checked else 3
+        if not icon.isNull():
+            p.drawPixmap(x, (h-20)//2, icon)
+        p.end()
+
+
+class V6ToggleItem(QWidget):
+    toggled = pyqtSignal(bool)
+    def __init__(self, icon_name, text, checked=False, parent=None):
+        super().__init__(parent)
+        self._icon = icon_name
+        self._text = text
+        self._hover = False
+        self.setFixedHeight(36)
+        self._toggle = V6MoonToggle(checked, self)
+        self._toggle.toggled.connect(self.toggled.emit)
+        self._icon_pm = load_svg_icon(icon_name, 20)
+    def resizeEvent(self, e):
+        self._toggle.move(self.width()-56, (self.height()-26)//2)
+    def mousePressEvent(self, e):
+        if e.x() < self.width()-60:
+            self._toggle.mousePressEvent(None)
+    def enterEvent(self, e):
+        self._hover = True; self.update()
+    def leaveEvent(self, e):
+        self._hover = False; self.update()
+    def set_checked(self, checked):
+        self._toggle.set_checked(checked)
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        if self._hover:
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(212, 175, 55, 35))
+            p.drawRoundedRect(QRectF(4, 2, self.width()-8, self.height()-4), 8, 8)
+        icon = load_svg_icon(self._icon, 20)
+        if not icon.isNull():
+            p.drawPixmap(14, (self.height()-20)//2, icon)
+        p.setFont(QFont('Microsoft YaHei', 10))
+        p.setPen(QColor('#d8c8e8'))
+        p.drawText(QRectF(44, 0, self.width()-80, self.height()), Qt.AlignVCenter | Qt.AlignLeft, self._text)
+
+
+class V6Menu(QWidget):
+    closed = pyqtSignal()
+    def __init__(self, pet, parent=None):
+        super().__init__(parent, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self._pet = pet
+        self.setFixedWidth(250)
+        self._top_toggle = None
+        self._follow_toggle = None
+        self._voice_toggle = None
+        self._size_buttons = {}
+        self._outside_timer = QTimer(self)
+        self._outside_timer.timeout.connect(self._check_outside)
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 8)
+        layout.setSpacing(1)
+        main_btn = QPushButton('  跟我说话')
+        main_btn.setFixedHeight(40)
+        main_btn.setCursor(Qt.PointingHandCursor)
+        main_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 rgba(120,160,255,230), stop:0.5 rgba(160,140,255,230), stop:1 rgba(230,200,120,230));
+                color: #fff; border: none; border-radius: 20px;
+                font-family: "Microsoft YaHei"; font-size: 12pt; font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 rgba(140,180,255,245), stop:0.5 rgba(180,160,255,245), stop:1 rgba(250,220,140,245));
+            }
+        """)
+        main_btn.setIcon(QIcon(load_svg_icon('chat', 22)))
+        main_btn.setIconSize(QSize(22, 22))
+        main_btn.clicked.connect(lambda: (self.close(), self._pet._open_chat()))
+        layout.addWidget(main_btn)
+        layout.addSpacing(6)
+        layout.addWidget(V6SectionTitle('互动区'))
+        for icon, text, key in [('feed','喂食','feed'), ('sleep','晚安','sleep'), ('poke','戳脸','poke'), ('random','随机语气词','random')]:
+            item = V6MenuItem(icon, text)
+            if key == 'random':
+                item.clicked.connect(lambda: (self.close(), self._pet._trigger(random.choice(['pat','poke','drag','feed','sleep']))))
+            else:
+                item.clicked.connect(lambda checked=False, k=key: (self.close(), self._pet._trigger(k)))
+            layout.addWidget(item)
+        layout.addSpacing(4)
+        layout.addWidget(V6SectionTitle('外观区'))
+        size_widget = QWidget()
+        size_widget.setFixedHeight(32)
+        sl = QHBoxLayout(size_widget)
+        sl.setContentsMargins(14, 2, 14, 2)
+        sl.setSpacing(4)
+        for label, sz in [('小',140),('中',200),('大',280),('超大',380)]:
+            sb = QPushButton(label)
+            sb.setFixedHeight(24)
+            sb.setCursor(Qt.PointingHandCursor)
+            self._size_buttons[sz] = sb
+            sb.clicked.connect(lambda checked=False, s=sz: (self.close(), self._pet._set_size(s)))
+            sl.addWidget(sb)
+        sl.addStretch()
+        layout.addWidget(size_widget)
+        self._top_toggle = V6ToggleItem('topmost', '始终置顶', self._pet._topmost)
+        self._top_toggle.toggled.connect(lambda on: self._pet._toggle_top(on))
+        layout.addWidget(self._top_toggle)
+        self._follow_toggle = V6ToggleItem('follow', '跟随鼠标', self._pet._follow)
+        self._follow_toggle.toggled.connect(lambda on: self._pet._toggle_follow(on))
+        layout.addWidget(self._follow_toggle)
+        layout.addSpacing(4)
+        layout.addWidget(V6SectionTitle('系统区'))
+        self._voice_toggle = V6ToggleItem('voice', '语音开关', self._pet.cfg.get('tts',{}).get('enabled', True))
+        self._voice_toggle.toggled.connect(self._pet._toggle_voice)
+        layout.addWidget(self._voice_toggle)
+        for icon, text, handler in [('api','API 设置','_open_settings'), ('help','使用说明','_show_help')]:
+            item = V6MenuItem(icon, text)
+            item.clicked.connect(lambda checked=False, h=handler: (self.close(), getattr(self._pet, h)()))
+            layout.addWidget(item)
+        quit_item = V6MenuItem('quit', '退出程序')
+        quit_item.clicked.connect(lambda: (self.close(), self._pet.close()))
+        layout.addWidget(quit_item)
+        layout.addSpacing(2)
+        footer = QWidget()
+        footer.setFixedHeight(36)
+        fl = QHBoxLayout(footer)
+        fl.setContentsMargins(0, 0, 0, 0)
+        fl.addStretch()
+        dango_lbl = QLabel()
+        dango_pix = self._pet._pet._dango_pix.get('calm')
+        if dango_pix and not dango_pix.isNull():
+            dango_lbl.setPixmap(dango_pix.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        fl.addWidget(dango_lbl)
+        name_lbl = QLabel('尤诺团子')
+        name_lbl.setStyleSheet('color: #a080c0; font-size: 8pt; font-family: "Microsoft YaHei";')
+        fl.addWidget(name_lbl)
+        fl.addStretch()
+        layout.addWidget(footer)
+        self._update_size_buttons()
+
+    def _update_size_buttons(self):
+        cur = self._pet._pet_size
+        for sz, btn in self._size_buttons.items():
+            active = (cur == sz)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: {'rgba(212,175,55,60)' if active else 'rgba(60,45,90,150)'};
+                    color: {'#ffe8a0' if active else '#b0a0c8'};
+                    border: 1px solid {'rgba(230,200,120,120)' if active else 'rgba(100,80,140,100)'};
+                    border-radius: 6px; font-size: 8pt; font-family: "Microsoft YaHei";
+                    padding: 0px 8px;
+                }}
+                QPushButton:hover {{ background: rgba(212,175,55,90); color: #ffe8a0; }}
+            """)
+
+    def update_states(self):
+        if self._top_toggle: self._top_toggle.set_checked(self._pet._topmost)
+        if self._follow_toggle: self._follow_toggle.set_checked(self._pet._follow)
+        if self._voice_toggle: self._voice_toggle.set_checked(self._pet.cfg.get('tts',{}).get('enabled', True))
+        self._update_size_buttons()
+
+    def popup(self, pos):
+        self.update_states()
+        screen = QApplication.primaryScreen().availableGeometry()
+        x = min(pos.x(), screen.right() - self.width() - 5)
+        y = min(pos.y(), screen.bottom() - self.height() - 5)
+        x = max(x, screen.left() + 5)
+        y = max(y, screen.top() + 5)
+        self.move(x, y)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        self._outside_timer.start(150)
+
+    def _check_outside(self):
+        try:
+            if QApplication.mouseButtons() & Qt.LeftButton:
+                gp = QCursor.pos()
+                if not self.geometry().contains(gp):
+                    self.close()
+        except Exception:
+            pass
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+        grad = QLinearGradient(0, 0, 0, h)
+        grad.setColorAt(0, QColor(20, 15, 45, 245))
+        grad.setColorAt(0.5, QColor(30, 20, 60, 245))
+        grad.setColorAt(1, QColor(40, 25, 75, 245))
+        p.setBrush(grad)
+        p.setPen(Qt.NoPen)
+        p.drawRoundedRect(QRectF(0, 0, w, h), 16, 16)
+        p.setPen(QPen(QColor(180, 140, 220, 150), 1))
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(QRectF(1, 1, w-2, h-2), 15, 15)
+        moon_grad = QRadialGradient(QPointF(w-28, 22), 14)
+        moon_grad.setColorAt(0, QColor(255, 230, 150, 120))
+        moon_grad.setColorAt(1, QColor(255, 230, 150, 0))
+        p.setBrush(moon_grad)
+        p.setPen(Qt.NoPen)
+        p.drawEllipse(QPointF(w-28, 22), 16, 16)
+        p.setBrush(QColor(255, 230, 150, 100))
+        for sx, sy, sr in [(30, 15, 1.5), (60, 8, 1), (w-50, 40, 1.2), (20, h-30, 1), (w-30, h-50, 1.5)]:
+            p.drawEllipse(QPointF(sx, sy), sr, sr)
+        p.end()
+
+    def closeEvent(self, e):
+        self._outside_timer.stop()
+        self.closed.emit()
+        super().closeEvent(e)
+
+
 # ============================================================
 # 主窗口
 # ============================================================
@@ -904,42 +1222,17 @@ class PetWindow(QWidget):
 
     # ---- 右键菜单 ----
     def _show_menu(self, pos):
-        menu = AnimeMenu('尤诺团子 v5', self)
-        a_chat = menu.addAction('跟我说话…')
-        menu.addSeparator()
-        a_feed = menu.addAction('喂食 🍰')
-        a_sleep = menu.addAction('晚安 🌙')
-        a_poke = menu.addAction('戳脸 👉')
-        a_random = menu.addAction('随机语气词')
-        menu.addSeparator()
-        size_menu = menu.addMenu('调整大小')
-        for label, sz in [('小', 140), ('中', 200), ('大', 280), ('超大', 380)]:
-            act = size_menu.addAction(label)
-            act.triggered.connect(lambda checked, s=sz: self._set_size(s))
-        a_top = menu.addAction('始终置顶'); a_top.setCheckable(True); a_top.setChecked(self._topmost)
-        a_follow = menu.addAction('跟随鼠标'); a_follow.setCheckable(True); a_follow.setChecked(self._follow)
-        a_voice = menu.addAction('语音开关'); a_voice.setCheckable(True); a_voice.setChecked(self.cfg.get('tts', {}).get('enabled', True))
-        menu.addSeparator()
-        a_settings = menu.addAction('API 设置…')
-        a_help = menu.addAction('使用说明 📖')
-        menu.addSeparator()
-        a_quit = menu.addAction('退出程序')
-        self._ui_open = True  # 右键菜单打开时暂停跟随
-        action = menu.exec_(pos)
-        self._ui_open = False  # 菜单关闭后恢复跟随（若打开其他UI会由对应handler重新置True）
-        if action == a_chat: self._open_chat()
-        elif action == a_feed: self._trigger('feed')
-        elif action == a_sleep: self._trigger('sleep')
-        elif action == a_poke: self._trigger('poke')
-        elif action == a_random: self._trigger(random.choice(['pat', 'poke', 'drag', 'feed', 'sleep']))
-        elif action == a_top: self._toggle_top(a_top.isChecked())
-        elif action == a_follow: self._toggle_follow(a_follow.isChecked())
-        elif action == a_voice:
-            self.cfg['tts']['enabled'] = a_voice.isChecked()
-            save_config(self.cfg)
-        elif action == a_settings: self._open_settings()
-        elif action == a_help: self._show_help()
-        elif action == a_quit: self.close()
+        self._ui_open = True
+        if not hasattr(self, '_v6_menu') or self._v6_menu is None:
+            self._v6_menu = V6Menu(self)
+            self._v6_menu.closed.connect(self._on_menu_closed)
+        if self._v6_menu.isVisible():
+            self._v6_menu.close()
+            return
+        self._v6_menu.popup(pos)
+
+    def _on_menu_closed(self):
+        self._ui_open = False
 
     def _set_size(self, sz):
         self._pet_size = sz
@@ -970,6 +1263,10 @@ class PetWindow(QWidget):
             self._follow_timer.stop()
             del self._follow_timer
         self.cfg['pet']['follow_mouse'] = on
+        save_config(self.cfg)
+
+    def _toggle_voice(self, on):
+        self.cfg['tts']['enabled'] = on
         save_config(self.cfg)
 
     def _open_settings(self):
