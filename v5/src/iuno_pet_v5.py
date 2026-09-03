@@ -574,10 +574,13 @@ class DangoWidget(QWidget):
 # 说明书窗口
 # ============================================================
 class HelpWindow(QWidget):
+    close_with_voice = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('尤诺团子桌宠 V5 · 使用说明')
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_QuitOnClose, False)
         self.resize(520, 620)
         self.setStyleSheet("""
             QWidget { background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #faf5ff, stop:1 #ece6ff); }
@@ -605,11 +608,14 @@ class HelpWindow(QWidget):
 
         help_text = QLabel(
             "<b>【基本操作】</b><br>"
-            "• 左键单击 — 跟尤诺聊天（LLM 对话）<br>"
-            "• 左键双击 — 摸头（哼~才不是特意让你摸的呢~）<br>"
+            "• 鼠标悬停 — 团子眼睛跟随鼠标方向<br>"
+            "• 单击头部 — 摸头（哼~才不是特意让你摸的呢~）<br>"
+            "• 单击脸部 — 戳脸（哇塞！你干嘛戳我脸啦！）<br>"
+            "• 单击身体 — 喂食（嗯~吧唧吧唧，好好吃！）<br>"
+            "• 左键双击 — 摸头<br>"
             "• 左键拖动 — 移动桌宠（喂喂喂！快放我下来啦！）<br>"
             "• 滚轮 — 调整大小（80~500px）<br>"
-            "• 右键 — 打开菜单<br><br>"
+            "• 右键 — 打开菜单（含跟我说话/喂食/晚安/使用说明等）<br><br>"
             "<b>【六情绪状态】</b><br>"
             "平静（呼吸微动）/ 开心（弹跳）/ 生气（抖动）/ 难过（缩小）<br>"
             "惊讶（拉伸+偷看动画）/ 傲娇（侧转）<br><br>"
@@ -639,9 +645,13 @@ class HelpWindow(QWidget):
         layout.addWidget(scroll, 1)
         layout.addSpacing(10)
 
-        close_btn = QPushButton('知道啦~')
-        close_btn.clicked.connect(self.close)
+        close_btn = QPushButton('知道了')
+        close_btn.clicked.connect(self._on_close_clicked)
         layout.addWidget(close_btn, alignment=Qt.AlignCenter)
+
+    def _on_close_clicked(self):
+        self.close_with_voice.emit()
+        self.close()
 
     def closeEvent(self, e):
         super().closeEvent(e)
@@ -793,8 +803,9 @@ class PetWindow(QWidget):
         if not self._follow or self._drag_pos is not None: return
         try:
             c = QCursor.pos()
-            tx = c.x() - self.width() // 2 + 15
-            ty = c.y() + 10
+            # 桌宠位于鼠标中下方：水平居中，鼠标在团子约60%高度处
+            tx = c.x() - self.width() // 2
+            ty = c.y() - int(self.height() * 0.55)
             cur = self.pos()
             dx = tx - cur.x()
             dy = ty - cur.y()
@@ -970,9 +981,16 @@ class PetWindow(QWidget):
     def _show_help(self):
         if self._help_window is None:
             self._help_window = HelpWindow()
+            self._help_window.close_with_voice.connect(self._play_help_close_voice)
         self._help_window.show()
         self._help_window.raise_()
         self._help_window.activateWindow()
+
+    def _play_help_close_voice(self):
+        # 点击"知道了"后播放语音，不退出程序
+        self._pet.set_bubble('知道了吗？嘿嘿')
+        self._pet.set_emotion('tsundere')
+        self._speak('知道了吗？嘿嘿')
 
     def closeEvent(self, e):
         try:
