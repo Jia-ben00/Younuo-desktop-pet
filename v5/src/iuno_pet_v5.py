@@ -67,6 +67,7 @@ TONE_MAP = {
     'drag':  {'file': 'drag.wav',  'emotion': 'angry',     'text': '喂喂喂！快放我下来啦！'},
     'feed':  {'file': 'feed.wav',  'emotion': 'happy',     'text': '嗯~吧唧吧唧，好好吃！才不是谢谢你哦！'},
     'sleep': {'file': 'sleep.wav', 'emotion': 'tsundere',  'text': '不准松开我……陪在我身边嘛'},
+    'know_you': {'file': 'know_you.wav', 'emotion': 'tsundere', 'text': '知道了吗？嘿嘿'},
 }
 
 # ============================================================
@@ -582,6 +583,7 @@ class DangoWidget(QWidget):
 # ============================================================
 class HelpWindow(QWidget):
     close_with_voice = pyqtSignal()
+    closed = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -661,6 +663,7 @@ class HelpWindow(QWidget):
         self.close()
 
     def closeEvent(self, e):
+        self.closed.emit()
         super().closeEvent(e)
 
 # ============================================================
@@ -696,6 +699,7 @@ class PetWindow(QWidget):
         super().__init__()
         self.cfg = load_config()
         self._help_window = None
+        self._ui_open = False  # UI界面打开时暂停鼠标跟随
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -807,7 +811,7 @@ class PetWindow(QWidget):
         save_config(self.cfg)
 
     def _follow_mouse(self):
-        if not self._follow or self._drag_pos is not None: return
+        if not self._follow or self._drag_pos is not None or self._ui_open: return
         try:
             c = QCursor.pos()
             # 桌宠位于鼠标中下方：水平居中，鼠标在团子约60%高度处
@@ -846,7 +850,9 @@ class PetWindow(QWidget):
 
     # ---- LLM 对话 ----
     def _open_chat(self):
+        self._ui_open = True
         text, ok = QInputDialog.getText(self, '跟尤诺说话', '说点什么吧：', QLineEdit.Normal, '')
+        self._ui_open = False
         if ok and text.strip():
             self._chat(text.strip())
 
@@ -923,7 +929,7 @@ class PetWindow(QWidget):
         elif action == a_feed: self._trigger('feed')
         elif action == a_sleep: self._trigger('sleep')
         elif action == a_poke: self._trigger('poke')
-        elif action == a_random: self._trigger(random.choice(list(TONE_MAP.keys())))
+        elif action == a_random: self._trigger(random.choice(['pat', 'poke', 'drag', 'feed', 'sleep']))
         elif action == a_top: self._toggle_top(a_top.isChecked())
         elif action == a_follow: self._toggle_follow(a_follow.isChecked())
         elif action == a_voice:
@@ -965,39 +971,51 @@ class PetWindow(QWidget):
         save_config(self.cfg)
 
     def _open_settings(self):
-        llm = self.cfg.get('llm', {})
-        tts = self.cfg.get('tts', {})
-        base, ok = QInputDialog.getText(self, 'API 设置 - 1/4', 'API Base URL（OpenAI 兼容）：', QLineEdit.Normal, llm.get('api_base', 'https://api.deepseek.com/v1'))
-        if not ok: return
-        if base.strip(): llm['api_base'] = base.strip()
-        key, ok = QInputDialog.getText(self, 'API 设置 - 2/4', 'API Key：', QLineEdit.Password, llm.get('api_key', ''))
-        if not ok: return
-        llm['api_key'] = key.strip()
-        model, ok = QInputDialog.getText(self, 'API 设置 - 3/4', '模型名称：', QLineEdit.Normal, llm.get('model', 'deepseek-chat'))
-        if not ok: return
-        if model.strip(): llm['model'] = model.strip()
-        engine, ok = QInputDialog.getItem(self, 'API 设置 - 4/4', 'TTS 引擎：', ['edge (Edge TTS 在线)', 'sapi (Windows 本地)'], 0 if tts.get('engine', 'edge') == 'edge' else 1, False)
-        if not ok: return
-        tts['engine'] = 'edge' if 'edge' in engine else 'sapi'
-        self.cfg['llm'] = llm
-        self.cfg['tts'] = tts
-        save_config(self.cfg)
-        self._pet.set_bubble('设置已保存~')
-        self._pet.set_emotion('happy')
+        self._ui_open = True
+        try:
+            llm = self.cfg.get('llm', {})
+            tts = self.cfg.get('tts', {})
+            base, ok = QInputDialog.getText(self, 'API 设置 - 1/4', 'API Base URL（OpenAI 兼容）：', QLineEdit.Normal, llm.get('api_base', 'https://api.deepseek.com/v1'))
+            if not ok: return
+            if base.strip(): llm['api_base'] = base.strip()
+            key, ok = QInputDialog.getText(self, 'API 设置 - 2/4', 'API Key：', QLineEdit.Password, llm.get('api_key', ''))
+            if not ok: return
+            llm['api_key'] = key.strip()
+            model, ok = QInputDialog.getText(self, 'API 设置 - 3/4', '模型名称：', QLineEdit.Normal, llm.get('model', 'deepseek-chat'))
+            if not ok: return
+            if model.strip(): llm['model'] = model.strip()
+            engine, ok = QInputDialog.getItem(self, 'API 设置 - 4/4', 'TTS 引擎：', ['edge (Edge TTS 在线)', 'sapi (Windows 本地)'], 0 if tts.get('engine', 'edge') == 'edge' else 1, False)
+            if not ok: return
+            tts['engine'] = 'edge' if 'edge' in engine else 'sapi'
+            self.cfg['llm'] = llm
+            self.cfg['tts'] = tts
+            save_config(self.cfg)
+            self._pet.set_bubble('设置已保存~')
+            self._pet.set_emotion('happy')
+        finally:
+            self._ui_open = False
 
     def _show_help(self):
         if self._help_window is None:
             self._help_window = HelpWindow()
             self._help_window.close_with_voice.connect(self._play_help_close_voice)
+            self._help_window.closed.connect(self._on_ui_closed)
+        self._ui_open = True
         self._help_window.show()
         self._help_window.raise_()
         self._help_window.activateWindow()
 
+    def _on_ui_closed(self):
+        self._ui_open = False
+
     def _play_help_close_voice(self):
-        # 点击"知道了"后播放语音，不退出程序
+        # 点击"知道了"后播放尤诺声线预录语音，不退出程序
         self._pet.set_bubble('知道了吗？嘿嘿')
         self._pet.set_emotion('tsundere')
-        self._speak('知道了吗？嘿嘿')
+        if 'know_you' in self._tone_effects:
+            fx = self._tone_effects['know_you']
+            fx.stop()
+            fx.play()
 
     def closeEvent(self, e):
         try:
