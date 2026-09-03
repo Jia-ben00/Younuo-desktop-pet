@@ -924,7 +924,9 @@ class PetWindow(QWidget):
         a_help = menu.addAction('使用说明 📖')
         menu.addSeparator()
         a_quit = menu.addAction('退出程序')
+        self._ui_open = True  # 右键菜单打开时暂停跟随
         action = menu.exec_(pos)
+        self._ui_open = False  # 菜单关闭后恢复跟随（若打开其他UI会由对应handler重新置True）
         if action == a_chat: self._open_chat()
         elif action == a_feed: self._trigger('feed')
         elif action == a_sleep: self._trigger('sleep')
