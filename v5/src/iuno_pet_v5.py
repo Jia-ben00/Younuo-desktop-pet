@@ -311,6 +311,11 @@ class DangoWidget(QWidget):
         self._effect = '无'
         self._speaking = False
         self._use_peeking = False  # 惊讶时用peeking动画
+        self._mouse_inside = False
+        self._mouse_x = 0.5  # 相对位置 0~1
+        self._mouse_y = 0.5
+        self._look_x = 0.0   # 平滑后的注视偏移
+        self._look_y = 0.0
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -359,6 +364,21 @@ class DangoWidget(QWidget):
     def paintEvent(self, e):
         try: self._render()
         except Exception: traceback.print_exc()
+
+    def enterEvent(self, e):
+        self._mouse_inside = True
+        self.update()
+
+    def leaveEvent(self, e):
+        self._mouse_inside = False
+        self.update()
+
+    def mouseMoveEvent(self, e):
+        w, h = self.width(), self.height()
+        if w > 0 and h > 0:
+            self._mouse_x = max(0, min(1, e.x() / w))
+            self._mouse_y = max(0, min(1, e.y() / h))
+        self.update()
 
     def _render(self):
         p = QPainter(self)
@@ -413,11 +433,30 @@ class DangoWidget(QWidget):
         cx = w / 2 + shake_x
         cy = h * 0.48 + bounce_y + speak_bounce
 
+        # ---- 鼠标跟随：团子轻微倾斜/偏移看向鼠标 ----
+        look_rot = 0.0
+        if self._mouse_inside and self._emotion in ('calm', 'happy', 'surprised', 'tsundere'):
+            # 目标偏移：鼠标相对中心的方向
+            target_lx = (self._mouse_x - 0.5) * 2.0  # -1~1
+            target_ly = (self._mouse_y - 0.5) * 2.0
+            # 平滑插值
+            self._look_x += (target_lx - self._look_x) * 0.12
+            self._look_y += (target_ly - self._look_y) * 0.12
+            # 轻微偏移（像团子探身看鼠标）
+            cx += self._look_x * 6.0
+            cy += self._look_y * 4.0
+            # 轻微旋转朝向鼠标
+            look_rot = self._look_x * 5.0  # 最多5度
+        else:
+            # 鼠标离开时缓慢回正
+            self._look_x *= 0.9
+            self._look_y *= 0.9
+
         # ---- 绘制团子（带旋转/形变） ----
         p.save()
         p.translate(cx, cy)
-        if rot != 0 or tilt != 0:
-            total_rot = rot + (math.sin(t * 1.5) * 2 if tilt < 0 else 0)
+        if rot != 0 or tilt != 0 or look_rot != 0:
+            total_rot = rot + look_rot + (math.sin(t * 1.5) * 2 if tilt < 0 else 0)
             p.rotate(total_rot)
 
         # 选择图片：惊讶时可能用peeking动画
@@ -696,6 +735,7 @@ class PetWindow(QWidget):
             self._drag_pos = e.globalPos() - self.frameGeometry().topLeft()
             self._drag_moved = False
             self._double_click = False
+            self._click_y_ratio = e.y() / max(1, self.height())
         elif e.button() == Qt.RightButton:
             self._show_menu(e.globalPos())
 
@@ -716,6 +756,7 @@ class PetWindow(QWidget):
             else:
                 now = time.time()
                 if now - self._click_time < 0.28:
+                    # 双击 = 摸头
                     self._double_click = True
                     self._trigger('pat')
                     self._click_time = 0
@@ -725,7 +766,17 @@ class PetWindow(QWidget):
 
     def _check_single_click(self):
         if not self._double_click and self._click_time > 0:
-            self._open_chat()
+            # 单击按位置触发不同互动
+            ratio = getattr(self, '_click_y_ratio', 0.5)
+            if ratio < 0.35:
+                # 头部 = 摸头
+                self._trigger('pat')
+            elif ratio < 0.65:
+                # 脸部 = 戳脸
+                self._trigger('poke')
+            else:
+                # 身体 = 喂食
+                self._trigger('feed')
         self._double_click = False
 
     def wheelEvent(self, e):
