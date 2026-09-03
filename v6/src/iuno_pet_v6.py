@@ -838,6 +838,58 @@ class V6ToggleItem(QWidget):
         p.drawText(QRectF(44, 0, self.width()-80, self.height()), Qt.AlignVCenter | Qt.AlignLeft, self._text)
 
 
+# ============================================================
+# 菜单左上角视频帧动画组件
+# ============================================================
+class MenuVideoWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(56, 56)
+        self._frames = []
+        self._frame_idx = 0
+        self._load_frames()
+        if self._frames:
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self._tick)
+            self._timer.start(100)  # 10fps
+
+    def _load_frames(self):
+        vdir = os.path.join(ANIMATION_DIR, 'menu_video')
+        if not os.path.isdir(vdir):
+            return
+        files = sorted([f for f in os.listdir(vdir) if f.endswith('.png')])
+        for f in files:
+            pix = QPixmap(os.path.join(vdir, f))
+            if not pix.isNull():
+                self._frames.append(pix.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def _tick(self):
+        self._frame_idx = (self._frame_idx + 1) % len(self._frames)
+        self.update()
+
+    def paintEvent(self, e):
+        if not self._frames:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        pix = self._frames[self._frame_idx]
+        x = (self.width() - pix.width()) // 2
+        y = (self.height() - pix.height()) // 2
+        # 圆角裁剪
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(x, y, pix.width(), pix.height()), 8, 8)
+        p.setClipPath(path)
+        p.drawPixmap(x, y, pix)
+        p.end()
+
+    def cleanup(self):
+        try:
+            if hasattr(self, '_timer'):
+                self._timer.stop()
+        except Exception:
+            pass
+
+
 class V6Menu(QWidget):
     closed = pyqtSignal()
     def __init__(self, pet, parent=None):
@@ -854,8 +906,35 @@ class V6Menu(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 8)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(1)
+
+        # 顶部区域：左上角视频动画 + 右上角关闭按钮
+        top_bar = QWidget()
+        top_bar.setFixedHeight(60)
+        tbl = QHBoxLayout(top_bar)
+        tbl.setContentsMargins(0, 0, 0, 0)
+        self._menu_video = MenuVideoWidget()
+        tbl.addWidget(self._menu_video)
+        tbl.addStretch()
+        close_btn = QPushButton('×')
+        close_btn.setFixedSize(28, 28)
+        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(180,140,220,40); color: #d0b0e8;
+                border: 1px solid rgba(180,140,220,80); border-radius: 14px;
+                font-size: 16pt; font-weight: bold; font-family: "Microsoft YaHei";
+            }
+            QPushButton:hover {
+                background: rgba(220,100,100,120); color: #fff;
+                border-color: rgba(255,150,150,150);
+            }
+        """)
+        close_btn.clicked.connect(self.close)
+        tbl.addWidget(close_btn)
+        layout.addWidget(top_bar)
+
         main_btn = QPushButton('  跟我说话')
         main_btn.setFixedHeight(40)
         main_btn.setCursor(Qt.PointingHandCursor)
@@ -993,19 +1072,15 @@ class V6Menu(QWidget):
         p.setPen(QPen(QColor(180, 140, 220, 150), 1))
         p.setBrush(Qt.NoBrush)
         p.drawRoundedRect(QRectF(1, 1, w-2, h-2), 15, 15)
-        moon_grad = QRadialGradient(QPointF(w-28, 22), 14)
-        moon_grad.setColorAt(0, QColor(255, 230, 150, 120))
-        moon_grad.setColorAt(1, QColor(255, 230, 150, 0))
-        p.setBrush(moon_grad)
-        p.setPen(Qt.NoPen)
-        p.drawEllipse(QPointF(w-28, 22), 16, 16)
-        p.setBrush(QColor(255, 230, 150, 100))
-        for sx, sy, sr in [(30, 15, 1.5), (60, 8, 1), (w-50, 40, 1.2), (20, h-30, 1), (w-30, h-50, 1.5)]:
+        p.setBrush(QColor(255, 230, 150, 80))
+        for sx, sy, sr in [(80, 12, 1.2), (120, 20, 0.8), (180, 10, 1), (20, h-30, 1), (w-60, h-20, 1.2)]:
             p.drawEllipse(QPointF(sx, sy), sr, sr)
         p.end()
 
     def closeEvent(self, e):
         self._outside_timer.stop()
+        if hasattr(self, '_menu_video'):
+            self._menu_video.cleanup()
         self.closed.emit()
         super().closeEvent(e)
 
@@ -1013,101 +1088,6 @@ class V6Menu(QWidget):
 # ============================================================
 # 主窗口
 # ============================================================
-
-# ============================================================
-# 尤诺翘腿动画窗口（左上角装饰，单图程序动画）
-# ============================================================
-class LegSwingWindow(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WA_NoSystemBackground, True)
-        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.setFixedSize(140, 140)
-
-        self._base_pix = None
-        self._load_base()
-
-        if self._base_pix and not self._base_pix.isNull():
-            self._timer = QTimer(self)
-            self._timer.timeout.connect(self._tick)
-            self._timer.start(33)  # ~30fps
-
-        self._time = 0.0
-        self._tsundere_start = -10  # 傲娇转头开始时间（-10表示不在傲娇状态）
-
-        # 放置在屏幕左上角
-        screen = QApplication.primaryScreen().geometry()
-        self.move(10, 10)
-
-    def _load_base(self):
-        path = os.path.join(ANIMATION_DIR, 'leg_swing', 'base.png')
-        if os.path.exists(path):
-            pix = QPixmap(path)
-            if not pix.isNull():
-                self._base_pix = pix.scaled(130, 130, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-
-    def _tick(self):
-        self._time += 0.033
-        # 每6秒触发一次傲娇转头，持续1.2秒
-        cycle = self._time % 6.0
-        if cycle < 0.05 and self._tsundere_start < 0:
-            self._tsundere_start = self._time
-        if self._tsundere_start > 0 and self._time - self._tsundere_start > 1.2:
-            self._tsundere_start = -10
-        self.update()
-
-    def paintEvent(self, e):
-        if not self._base_pix or self._base_pix.isNull():
-            return
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, True)
-        p.setRenderHint(QPainter.SmoothPixmapTransform, True)
-
-        t = self._time
-        w, h = self.width(), self.height()
-        pix_w, pix_h = self._base_pix.width(), self._base_pix.height()
-
-        # 计算动画参数
-        # 1. 呼吸浮动（上下轻微浮动）
-        breath_y = math.sin(t * 2.0) * 1.5
-        # 2. 脚尖晃动（整体轻微旋转，模拟翘腿脚尖晃动）
-        leg_rot = math.sin(t * 2.5) * 1.2
-        # 3. 傲娇转头（别过头，持续1.2秒，平滑进出）
-        tsundere_rot = 0.0
-        if self._tsundere_start > 0:
-            elapsed = t - self._tsundere_start
-            if 0 <= elapsed <= 1.2:
-                # 平滑进出：0->1->0
-                if elapsed < 0.3:
-                    progress = elapsed / 0.3
-                elif elapsed > 0.9:
-                    progress = max(0, (1.2 - elapsed) / 0.3)
-                else:
-                    progress = 1.0
-                tsundere_rot = -6.0 * progress  # 向左转头6度
-
-        total_rot = leg_rot + tsundere_rot
-
-        # 绘制（带旋转和浮动）
-        cx = w / 2
-        cy = h / 2 + breath_y
-        p.save()
-        p.translate(cx, cy)
-        p.rotate(total_rot)
-        p.drawPixmap(-pix_w // 2, -pix_h // 2, self._base_pix)
-        p.restore()
-        p.end()
-
-    def cleanup(self):
-        try:
-            if hasattr(self, '_timer'):
-                self._timer.stop()
-        except Exception:
-            pass
-
-
 
 class PetWindow(QWidget):
     def __init__(self):
@@ -1142,9 +1122,7 @@ class PetWindow(QWidget):
         self._pet.setFixedSize(self._pet_size, h)
         self.resize(self._pet_size, h)
 
-        # 左上角翘腿动画
-        self._leg_swing = LegSwingWindow(self)
-        self._leg_swing.show()
+
 
         if self._follow:
             self._follow_timer = QTimer(self)
@@ -1427,9 +1405,6 @@ class PetWindow(QWidget):
                 try: fx.stop()
                 except: pass
             self._pet.cleanup()
-            if hasattr(self, '_leg_swing'):
-                self._leg_swing.cleanup()
-                self._leg_swing.close()
             if self._help_window: self._help_window.close()
         except Exception: pass
         super().closeEvent(e)
