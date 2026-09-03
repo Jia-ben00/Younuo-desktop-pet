@@ -42,6 +42,7 @@ ASSETS = resource_path('assets')
 DANGO_DIR = os.path.join(ASSETS, 'stickers', 'dango')
 PEEKING_DIR = os.path.join(ASSETS, 'stickers', 'peeking')
 VOICE_DIR = os.path.join(ASSETS, 'voice')
+ANIMATION_DIR = os.path.join(ASSETS, 'animations')
 
 # ============================================================
 # 情绪 → 团子图映射（单帧 + 程序驱动动画参数）
@@ -1012,6 +1013,66 @@ class V6Menu(QWidget):
 # ============================================================
 # 主窗口
 # ============================================================
+
+# ============================================================
+# 尤诺翘腿动画窗口（左上角装饰）
+# ============================================================
+class LegSwingWindow(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setFixedSize(120, 120)
+
+        self._frames = []
+        self._frame_idx = 0
+        self._load_frames()
+
+        if self._frames:
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self._tick)
+            self._timer.start(200)  # 5fps，翘腿动画
+
+        # 放置在屏幕左上角
+        screen = QApplication.primaryScreen().geometry()
+        self.move(10, 10)
+
+    def _load_frames(self):
+        leg_dir = os.path.join(ANIMATION_DIR, 'leg_swing')
+        if not os.path.isdir(leg_dir):
+            return
+        for i in range(1, 5):
+            path = os.path.join(leg_dir, f'frame_{i}.png')
+            if os.path.exists(path):
+                pix = QPixmap(path)
+                if not pix.isNull():
+                    self._frames.append(pix.scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def _tick(self):
+        self._frame_idx = (self._frame_idx + 1) % len(self._frames)
+        self.update()
+
+    def paintEvent(self, e):
+        if not self._frames:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        pix = self._frames[self._frame_idx]
+        x = (self.width() - pix.width()) // 2
+        y = (self.height() - pix.height()) // 2
+        p.drawPixmap(x, y, pix)
+        p.end()
+
+    def cleanup(self):
+        try:
+            if hasattr(self, '_timer'):
+                self._timer.stop()
+        except Exception:
+            pass
+
+
 class PetWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -1044,6 +1105,10 @@ class PetWindow(QWidget):
         h = int(self._pet_size * 1.15)
         self._pet.setFixedSize(self._pet_size, h)
         self.resize(self._pet_size, h)
+
+        # 左上角翘腿动画
+        self._leg_swing = LegSwingWindow(self)
+        self._leg_swing.show()
 
         if self._follow:
             self._follow_timer = QTimer(self)
@@ -1326,6 +1391,9 @@ class PetWindow(QWidget):
                 try: fx.stop()
                 except: pass
             self._pet.cleanup()
+            if hasattr(self, '_leg_swing'):
+                self._leg_swing.cleanup()
+                self._leg_swing.close()
             if self._help_window: self._help_window.close()
         except Exception: pass
         super().closeEvent(e)
