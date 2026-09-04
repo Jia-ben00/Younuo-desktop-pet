@@ -23,6 +23,9 @@ from PyQt5.QtGui import (QPainter, QPixmap, QImage, QColor, QFont, QIcon,
 from PyQt5.QtMultimedia import QSoundEffect
 from PyQt5.QtSvg import QSvgRenderer
 
+# V7菜单
+from v7_menu import V7Menu
+
 # ============================================================
 # 资源路径
 # ============================================================

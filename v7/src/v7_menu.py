@@ -163,6 +163,7 @@ class V7ToggleItem(QWidget):
 
 class V7Menu(QWidget):
     """V7主菜单 - 月夜毛玻璃风格"""
+    closed = pyqtSignal()
 
     def __init__(self, pet, parent=None):
         super().__init__(parent, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -398,6 +399,7 @@ class V7Menu(QWidget):
         if hasattr(self, '_corner_pet') and self._corner_pet:
             if hasattr(self._corner_pet, '_timer') and self._corner_pet._timer:
                 self._corner_pet._timer.stop()
+        self.closed.emit()
         super().closeEvent(event)
 
     # 鼠标拖动
