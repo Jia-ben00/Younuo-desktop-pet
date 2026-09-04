@@ -7,9 +7,9 @@ V7菜单 - 按效果图重写
 import os
 import math
 import random
-from PyQt5.QtCore import Qt, QTimer, QPoint, QSize, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QBrush, QLinearGradient, QRadialGradient, QFont, QIcon
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSizePolicy
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSizePolicy, QApplication
 
 ANIMATION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'animations')
 
@@ -268,12 +268,9 @@ class V7Menu(QWidget):
 
         # 互动区
         layout.addWidget(self._section_title('互动区'))
-        for icon_key, text, key in [('feed','喂食','feed'), ('sleep','晚安','sleep'), ('poke','戳脸','poke'), ('random','随机语气词','random')]:
+        for icon_key, text, key in [('feed','喂食','feed'), ('sleep','晚安','sleep'), ('poke','戳脸','poke')]:
             item = V7MenuItem(self._icons.get(icon_key), text)
-            if key == 'random':
-                item.clicked.connect(lambda: (self.close(), self._pet._trigger(__import__('random').choice(['pat','poke','drag','feed','sleep']))))
-            else:
-                item.clicked.connect(lambda checked=False, k=key: (self.close(), self._pet._trigger(k)))
+            item.clicked.connect(lambda checked=False, k=key: (self.close(), self._pet._trigger(k)))
             layout.addWidget(item)
         layout.addSpacing(6)
 
@@ -285,7 +282,7 @@ class V7Menu(QWidget):
         sl.setContentsMargins(10, 2, 10, 2)
         sl.setSpacing(6)
         self._size_buttons = {}
-        for label, sz in [('小',140),('中',200),('大',280),('超大',380)]:
+        for label, sz in [('小',140),('中',200),('大',280)]:
             sb = QPushButton(label)
             sb.setFixedHeight(26)
             sb.setCursor(Qt.PointingHandCursor)
@@ -307,7 +304,7 @@ class V7Menu(QWidget):
         self._voice_toggle = V7ToggleItem(self._icons.get('voice'), '语音开关', self._pet.cfg.get('tts',{}).get('enabled', True))
         self._voice_toggle.toggled.connect(self._pet._toggle_voice)
         layout.addWidget(self._voice_toggle)
-        for icon_key, text, handler in [('api','API 设置','_open_settings'), ('help','使用说明','_show_help')]:
+        for icon_key, text, handler in [('help','使用说明','_show_help')]:
             item = V7MenuItem(self._icons.get(icon_key), text)
             item.clicked.connect(lambda checked=False, h=handler: (self.close(), getattr(self._pet, h)()))
             layout.addWidget(item)
@@ -397,43 +394,57 @@ class V7Menu(QWidget):
         self._drag_pos = None
 
     def paintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, True)
-        w, h = self.width(), self.height()
-        # 深蓝紫星空渐变背景
-        grad = QLinearGradient(0, 0, w, h)
-        grad.setColorAt(0, QColor(18, 14, 42, 252))
-        grad.setColorAt(0.4, QColor(28, 20, 58, 252))
-        grad.setColorAt(0.7, QColor(35, 24, 68, 252))
-        grad.setColorAt(1, QColor(22, 16, 50, 252))
-        p.setBrush(grad)
-        p.setPen(Qt.NoPen)
-        p.drawRoundedRect(0, 0, w, h, 16, 16)
-        # 金色内边框
-        p.setPen(QPen(QColor(212, 175, 55, 100), 1.5))
-        p.setBrush(Qt.NoBrush)
-        p.drawRoundedRect(2, 2, w-4, h-4, 14, 14)
-        # 四角金色圆弧装饰
-        p.setPen(QPen(QColor(230, 200, 120, 180), 2))
-        cs = 14
-        p.drawArc(4, 4, cs*2, cs*2, 90*16, 90*16)
-        p.drawArc(w-4-cs*2, 4, cs*2, cs*2, 0, 90*16)
-        p.drawArc(4, h-4-cs*2, cs*2, cs*2, 180*16, 90*16)
-        p.drawArc(w-4-cs*2, h-4-cs*2, cs*2, cs*2, 270*16, 90*16)
-        # 星星
-        p.setBrush(QColor(255, 230, 150, 70))
-        p.setPen(Qt.NoPen)
-        random.seed(42)
-        for _ in range(20):
-            sx = random.randint(20, w-20)
-            sy = random.randint(90, h-30)
-            sr = random.uniform(0.4, 1.2)
-            p.drawEllipse(QPointF(sx, sy), sr, sr)
-        p.end()
+        try:
+            p = QPainter(self)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            w, h = self.width(), self.height()
+            # 深蓝紫星空渐变背景
+            grad = QLinearGradient(0, 0, w, h)
+            grad.setColorAt(0, QColor(18, 14, 42, 252))
+            grad.setColorAt(0.4, QColor(28, 20, 58, 252))
+            grad.setColorAt(0.7, QColor(35, 24, 68, 252))
+            grad.setColorAt(1, QColor(22, 16, 50, 252))
+            p.setBrush(grad)
+            p.setPen(Qt.NoPen)
+            p.drawRoundedRect(0, 0, w, h, 16, 16)
+            # 金色内边框
+            p.setPen(QPen(QColor(212, 175, 55, 100), 1.5))
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(2, 2, w-4, h-4, 14, 14)
+            # 四角金色圆弧装饰
+            p.setPen(QPen(QColor(230, 200, 120, 180), 2))
+            cs = 14
+            p.drawArc(4, 4, cs*2, cs*2, 90*16, 90*16)
+            p.drawArc(w-4-cs*2, 4, cs*2, cs*2, 0, 90*16)
+            p.drawArc(4, h-4-cs*2, cs*2, cs*2, 180*16, 90*16)
+            p.drawArc(w-4-cs*2, h-4-cs*2, cs*2, cs*2, 270*16, 90*16)
+            # 星星
+            p.setBrush(QColor(255, 230, 150, 70))
+            p.setPen(Qt.NoPen)
+            random.seed(42)
+            for _ in range(20):
+                sx = random.randint(20, w-20)
+                sy = random.randint(90, h-30)
+                sr = random.uniform(0.4, 1.2)
+                p.drawEllipse(QPointF(sx, sy), sr, sr)
+            p.end()
+        except Exception:
+            pass
 
     def closeEvent(self, e):
-        self._outside_timer.stop()
-        if hasattr(self, '_corner_pet'):
-            self._corner_pet.cleanup()
-        self.closed.emit()
+        try:
+            self._outside_timer.stop()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, '_corner_pet') and self._corner_pet:
+                self._corner_pet.cleanup()
+        except Exception:
+            pass
+        try:
+            self.closed.emit()
+        except Exception:
+            pass
+        # 延迟删除，避免在closeEvent中直接销毁
+        QTimer.singleShot(50, self.deleteLater)
         super().closeEvent(e)

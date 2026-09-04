@@ -356,14 +356,17 @@ class DangoWidget(QWidget):
             if self._video_frames:
                 self._video_timer = QTimer(self)
                 self._video_timer.timeout.connect(self._video_tick)
-                self._video_timer.start(80)
+                self._video_timer.start(150)  # 降低帧率，减少CPU占用和重绘频率
 
     def _video_tick(self):
-        if not self._video_frames:
-            return
-        self._video_idx = (self._video_idx + 1) % len(self._video_frames)
-        if self._emotion == 'calm':
-            self.update()
+        try:
+            if not self._video_frames:
+                return
+            self._video_idx = (self._video_idx + 1) % len(self._video_frames)
+            if self._emotion == 'calm':
+                self.update()
+        except Exception:
+            pass
 
     def set_emotion(self, emo):
         if emo not in EMOTION_DANGO: return
@@ -378,14 +381,17 @@ class DangoWidget(QWidget):
     def set_speaking(self, on): self._speaking = on
 
     def _tick(self):
-        self._time += 0.033
-        dur = EMOTION_DURATION.get(self._emotion, 0)
-        if dur > 0 and time.time() - self._emotion_start > dur:
-            self._emotion = 'calm'
-            self._emotion_start = time.time()
-            self._use_peeking = False
-        self._cur_scale += (self._target_scale - self._cur_scale) * 0.15
-        self.update()
+        try:
+            self._time += 0.033
+            dur = EMOTION_DURATION.get(self._emotion, 0)
+            if dur > 0 and time.time() - self._emotion_start > dur:
+                self._emotion = 'calm'
+                self._emotion_start = time.time()
+                self._use_peeking = False
+            self._cur_scale += (self._target_scale - self._cur_scale) * 0.15
+            self.update()
+        except Exception:
+            traceback.print_exc()
 
     def paintEvent(self, e):
         try: self._render()
@@ -416,23 +422,13 @@ class DangoWidget(QWidget):
     def _render(self):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
-        p.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        # SmoothPixmapTransform已移除：PyQt5 5.15.11会触发0xC0000409崩溃
 
         w, h = self.width(), self.height()
         info = EMOTION_DANGO.get(self._emotion, EMOTION_DANGO['calm'])
         t = self._time
 
-        # ---- 阴影 ----
-        shadow_w = w * 0.5
-        shadow_h = h * 0.06
-        shadow_x = (w - shadow_w) / 2
-        shadow_y = h * 0.92
-        sg = QRadialGradient(QPointF(w/2, shadow_y + shadow_h/2), shadow_w/2)
-        sg.setColorAt(0, QColor(0,0,0,45))
-        sg.setColorAt(1, QColor(0,0,0,0))
-        p.setBrush(QBrush(sg))
-        p.setPen(Qt.NoPen)
-        p.drawEllipse(QRectF(shadow_x, shadow_y, shadow_w, shadow_h))
+        # ---- 阴影已移除（QRadialGradient可能导致崩溃） ----
 
         # ---- 计算形变参数 ----
         sx, sy = info['scale']
@@ -487,7 +483,10 @@ class DangoWidget(QWidget):
 
         # ---- 绘制团子（带旋转/形变） ----
         p.save()
-        p.translate(cx, cy)
+        # 确保坐标有效
+        if not (0 <= cx <= 10000 and 0 <= cy <= 10000):
+            cx, cy = w/2, h/2
+        p.translate(int(cx), int(cy))
         if rot != 0 or tilt != 0 or look_rot != 0:
             total_rot = rot + look_rot + (math.sin(t * 1.5) * 2 if tilt < 0 else 0)
             p.rotate(total_rot)
@@ -503,7 +502,7 @@ class DangoWidget(QWidget):
             else:
                 draw_pix = self._dango_pix.get(self._emotion, self._dango_pix.get('calm'))
 
-        if draw_pix and not draw_pix.isNull():
+        if draw_pix and not draw_pix.isNull() and draw_pix.width() > 0 and draw_pix.height() > 0:
             # 保持图片比例
             pix_ratio = draw_pix.width() / draw_pix.height()
             if base_w / base_h > pix_ratio:
@@ -516,8 +515,8 @@ class DangoWidget(QWidget):
             dx = -draw_w / 2
             dy = -draw_h / 2
 
-            # 平滑边缘：先绘制到临时pixmap做抗锯齿边缘
-            p.drawPixmap(QRectF(dx, dy, draw_w, draw_h), draw_pix, QRectF(draw_pix.rect()))
+            # 绘制图片（使用简单重载，避免QRectF重载在PyQt5 5.15.11下的潜在崩溃）
+            p.drawPixmap(int(dx), int(dy), int(draw_w), int(draw_h), draw_pix)
         p.restore()
 
         # ---- 特效粒子 ----
@@ -542,9 +541,9 @@ class DangoWidget(QWidget):
                 ang = t * 1.5 + i * 2.1; r = 30 + (t * 20 + i * 15) % 50
                 hx = cx + math.cos(ang) * r * 0.5; hy = cy - 40 - (t * 30 + i * 20) % 60
                 size = 8 + 4 * math.sin(t*3+i)
-                p.drawEllipse(QPointF(hx - size*0.4, hy), size*0.5, size*0.5)
-                p.drawEllipse(QPointF(hx + size*0.4, hy), size*0.5, size*0.5)
-                tri = QPolygonF([QPointF(hx-size*0.7, hy+size*0.2), QPointF(hx+size*0.7, hy+size*0.2), QPointF(hx, hy+size*1.1)])
+                p.drawEllipse(int(hx - size*0.4), int(hy), int(size*0.5), int(size*0.5))
+                p.drawEllipse(int(hx + size*0.4), int(hy), int(size*0.5), int(size*0.5))
+                tri = QPolygon([QPoint(int(hx-size*0.7), int(hy+size*0.2)), QPoint(int(hx+size*0.7), int(hy+size*0.2)), QPoint(int(hx), int(hy+size*1.1))])
                 p.drawPolygon(tri)
         elif self._effect == '星光':
             p.setBrush(QColor(255, 240, 150, 200)); p.setPen(Qt.NoPen)
@@ -552,22 +551,22 @@ class DangoWidget(QWidget):
                 ang = t * 2 + i * 1.26; r = 25 + (t * 15 + i * 10) % 45
                 sx = cx + math.cos(ang) * r; sy = cy - 30 + math.sin(ang) * r * 0.6 - (t*10) % 30
                 size = 4 + 3 * math.sin(t*4+i)
-                p.drawEllipse(QPointF(sx, sy), size, size)
+                p.drawEllipse(int(sx), int(sy), int(size), int(size))
         elif self._effect == '音符':
             p.setPen(QColor(150, 100, 200, 200)); f = QFont('Microsoft YaHei', 12, QFont.Bold); p.setFont(f)
             for i, note in enumerate(['♪', '♫', '♬']):
                 ny = cy - 30 - (t * 25 + i * 20) % 70; nx = cx + math.sin(t*2 + i) * 25
-                p.drawText(QPointF(nx, ny), note)
+                p.drawText(int(nx), int(ny), note)
         elif self._effect == '月亮符文':
             p.setPen(QPen(QColor(200, 180, 255, 150), 2)); p.setBrush(Qt.NoBrush)
             rad = 35 + 10 * math.sin(t*2)
-            p.drawEllipse(QPointF(cx, cy - 20), rad, rad)
-            p.drawArc(QRectF(cx-rad*0.7, cy-20-rad*0.7, rad*1.4, rad*1.4), int(45*16), int(270*16))
+            p.drawEllipse(int(cx-rad), int(cy-20-rad), int(rad*2), int(rad*2))
+            p.drawArc(int(cx-rad*0.7), int(cy-20-rad*0.7), int(rad*1.4), int(rad*1.4), int(45*16), int(270*16))
         elif self._effect == '月蚀黑雾':
             p.setBrush(QColor(60, 40, 80, 100)); p.setPen(Qt.NoPen)
             for i in range(4):
                 ox = cx + math.sin(t*1.5+i*1.5) * 30; oy = cy - 40 - (t*15+i*10) % 50
-                p.drawEllipse(QPointF(ox, oy), 12, 8)
+                p.drawEllipse(int(ox), int(oy), 12, 8)
         p.restore()
 
     def _draw_bubble(self, p, w, alpha):
@@ -592,18 +591,22 @@ class DangoWidget(QWidget):
         grad.setColorAt(1, QColor(228, 222, 255, int(245*alpha)))
         p.setBrush(QBrush(grad))
         p.setPen(QPen(QColor(170, 145, 215, int(210*alpha)), 1.5))
-        p.drawRoundedRect(QRectF(bx, by, bw, bh), 12, 12)
-        tail = QPolygonF([QPointF(w//2-7, by+bh), QPointF(w//2+7, by+bh), QPointF(w//2, by+bh+9)])
+        p.drawRoundedRect(int(bx), int(by), int(bw), int(bh), 12, 12)
+        tail = QPolygon([QPoint(w//2-7, int(by+bh)), QPoint(w//2+7, int(by+bh)), QPoint(w//2, int(by+bh+9))])
         p.drawPolygon(tail)
         p.setPen(QColor(70, 50, 110, int(255*alpha)))
         ty = by + 8
         for line in lines:
-            p.drawText(QRectF(bx, ty, bw, line_h), Qt.AlignCenter, line)
+            p.drawText(int(bx), int(ty), int(bw), int(line_h), Qt.AlignCenter, line)
             ty += line_h
         p.restore()
 
     def cleanup(self):
         try: self._timer.stop()
+        except Exception: pass
+        try:
+            if self._video_timer:
+                self._video_timer.stop()
         except Exception: pass
 
 # ============================================================
@@ -754,7 +757,7 @@ class V6SectionTitle(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.setFont(QFont('Microsoft YaHei', 10, QFont.Bold))
         p.setPen(QColor('#e8c870'))
-        p.drawText(QRectF(10, 0, 80, self.height()), Qt.AlignVCenter | Qt.AlignLeft, self._text)
+        p.drawText(10, 0, 80, int(self.height()), Qt.AlignVCenter | Qt.AlignLeft, self._text)
         p.setPen(QPen(QColor(120, 90, 160, 100), 1))
         p.drawLine(90, self.height()//2, self.width()-10, self.height()//2)
         p.end()
@@ -973,16 +976,27 @@ class PetWindow(QWidget):
     # ---- 右键菜单 ----
     def _show_menu(self, pos):
         self._ui_open = True
-        if not hasattr(self, '_v6_menu') or self._v6_menu is None:
-            self._v6_menu = V7Menu(self)
-            self._v6_menu.closed.connect(self._on_menu_closed)
-        if self._v6_menu.isVisible():
-            self._v6_menu.close()
-            return
-        self._v6_menu.popup(pos)
+        # 每次打开重新创建菜单，确保资源干净
+        if hasattr(self, '_v7_menu') and self._v7_menu is not None:
+            try:
+                self._v7_menu.close()
+                self._v7_menu.deleteLater()
+            except Exception:
+                pass
+            self._v7_menu = None
+        self._v7_menu = V7Menu(self)
+        self._v7_menu.closed.connect(self._on_menu_closed)
+        self._v7_menu.popup(pos)
 
     def _on_menu_closed(self):
         self._ui_open = False
+        # 延迟销毁菜单对象，释放资源
+        try:
+            if hasattr(self, '_v7_menu') and self._v7_menu is not None:
+                self._v7_menu.deleteLater()
+                self._v7_menu = None
+        except Exception:
+            pass
 
     def _set_size(self, sz):
         self._pet_size = sz
