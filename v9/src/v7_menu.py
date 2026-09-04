@@ -271,6 +271,10 @@ class V7Menu(QWidget):
             item = V7MenuItem(self._icons.get(icon_key), text)
             item.clicked.connect(lambda k=key: (self.close(), self._pet._trigger(k)))
             layout.addWidget(item)
+        # V9：测试形象按钮
+        test_item = V7MenuItem(self._icons.get('random'), '测试形象')
+        test_item.clicked.connect(lambda: (self.close(), self._pet._pet.start_test_mode()))
+        layout.addWidget(test_item)
         layout.addSpacing(4)
 
         # 外观区

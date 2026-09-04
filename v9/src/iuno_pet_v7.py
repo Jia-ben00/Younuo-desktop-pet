@@ -308,10 +308,15 @@ class DangoWidget(QWidget):
         self._video_idx = 0
         self._video_timer = None
         # V9：随机形象
-        self._random_pixmaps = []  # 所有可用形象列表
+        self._random_pixmaps = []  # 所有可用形象列表（6张design + 1个peeking动画标记）
         self._random_current = None  # 当前随机形象
         self._random_mode = True  # 默认启用随机模式
         self._random_timer = None  # 每10秒切换定时器
+        self._peeking_anim = False  # 当前是否显示peeking动画
+        # V9：测试模式
+        self._test_mode = False  # 测试模式标志
+        self._test_index = 0  # 当前测试到第几张
+        self._test_timer = None  # 测试模式定时器
         self._load_all()
 
         self._emotion = 'happy'
@@ -373,15 +378,14 @@ class DangoWidget(QWidget):
                     if not pix.isNull():
                         self._random_pixmaps.append(pix)
                 except Exception: pass
-        # V9：将peeking帧前10帧加入随机形象池
-        for pix in self._peeking_frames[:10]:
-            self._random_pixmaps.append(pix)
-        # V9：将现有情绪图片也加入随机形象池
-        for emo, pix in self._dango_pix.items():
-            self._random_pixmaps.append(pix)
+        # V9：peeking作为1个动画形象标记（用字符串'peeking_anim'表示）
+        if self._peeking_frames:
+            self._random_pixmaps.append('peeking_anim')
+        # V9：随机形象池 = 6张design + 1个peeking动画 = 7张
         # V9：启动每10秒随机切换定时器
         if self._random_pixmaps:
             self._random_current = self._random_pixmaps[0]  # 启动时先显示第一张
+            self._peeking_anim = (self._random_current == 'peeking_anim')
             self._random_timer = QTimer(self)
             self._random_timer.timeout.connect(self._switch_random_image)
             self._random_timer.start(10000)  # 每10秒切换一次
@@ -399,12 +403,55 @@ class DangoWidget(QWidget):
     def _switch_random_image(self):
         # V9：随机切换桌宠形象
         try:
-            if self._random_pixmaps and self._random_mode:
+            if self._random_pixmaps and self._random_mode and not self._test_mode:
                 # 避免连续两次选到同一张
                 new_pix = random.choice(self._random_pixmaps)
-                while len(self._random_pixmaps) > 1 and new_pix is self._random_current:
+                while len(self._random_pixmaps) > 1 and new_pix == self._random_current:
                     new_pix = random.choice(self._random_pixmaps)
                 self._random_current = new_pix
+                self._peeking_anim = (new_pix == 'peeking_anim')
+                self.update()
+        except Exception:
+            pass
+
+    def start_test_mode(self):
+        # V9：启动测试模式，依次显示7张图
+        try:
+            self._test_mode = True
+            self._test_index = 0
+            self._random_mode = False  # 暂停随机切换
+            if self._test_timer:
+                self._test_timer.stop()
+            self._test_timer = QTimer(self)
+            self._test_timer.timeout.connect(self._test_next)
+            self._test_timer.start(3000)  # 每张显示3秒
+            self._test_show_current()
+        except Exception:
+            pass
+
+    def _test_next(self):
+        # V9：测试模式切换到下一张
+        try:
+            self._test_index += 1
+            if self._test_index >= len(self._random_pixmaps):
+                # 测试完成，恢复随机模式
+                self._test_mode = False
+                self._random_mode = True
+                if self._test_timer:
+                    self._test_timer.stop()
+                    self._test_timer = None
+                self._switch_random_image()
+                return
+            self._test_show_current()
+        except Exception:
+            pass
+
+    def _test_show_current(self):
+        # V9：显示当前测试的形象
+        try:
+            if 0 <= self._test_index < len(self._random_pixmaps):
+                self._random_current = self._random_pixmaps[self._test_index]
+                self._peeking_anim = (self._random_current == 'peeking_anim')
                 self.update()
         except Exception:
             pass
@@ -514,9 +561,14 @@ class DangoWidget(QWidget):
         p.translate(int(cx), int(cy))
 
         draw_pix = None
-        # V9：随机模式优先显示随机形象
-        if self._random_mode and self._random_current and not self._use_peeking:
-            draw_pix = self._random_current
+        # V9：peeking动画播放（测试模式或随机选中peeking时）
+        if self._peeking_anim and self._peeking_frames and not self._use_peeking:
+            idx = int(t * 10) % len(self._peeking_frames)
+            draw_pix = self._peeking_frames[idx]
+        # V9：随机模式/测试模式优先显示随机形象
+        elif (self._random_mode or self._test_mode) and self._random_current and not self._use_peeking:
+            if isinstance(self._random_current, QPixmap):
+                draw_pix = self._random_current
         elif self._use_peeking and self._peeking_frames:
             idx = int(t * 10) % len(self._peeking_frames)
             draw_pix = self._peeking_frames[idx]
