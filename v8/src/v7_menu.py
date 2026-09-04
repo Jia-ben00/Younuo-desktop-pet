@@ -21,37 +21,44 @@ ANIMATION_DIR = resource_path(os.path.join('assets', 'animations'))
 
 
 class CornerPetWidget(QWidget):
-    """菜单左上角尤诺团子静态形象（V8：用chibi Q版形象，提升稳定性）"""
+    """菜单左上角尤诺团子动画（corner_pet 40帧）"""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(80, 80)
-        self._pix = None
-        self._load_image()
+        self._frames = []
+        self._frame_idx = 0
+        self._timer = None
+        self._load_frames()
+        if self._frames:
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self._tick)
+            self._timer.start(100)
 
-    def _load_image(self):
-        # 优先用chibi.png（新搜索的Q版形象），fallback用corner_pet第一帧
-        sticker_dir = resource_path(os.path.join('assets', 'stickers', 'dango'))
-        chibi_path = os.path.join(sticker_dir, 'chibi.png')
-        if os.path.exists(chibi_path):
-            pix = QPixmap(chibi_path)
-            if not pix.isNull():
-                self._pix = pix
-                return
-        # fallback: corner_pet第一帧
+    def _load_frames(self):
         corner_dir = os.path.join(ANIMATION_DIR, 'corner_pet')
-        if os.path.isdir(corner_dir):
-            files = sorted([f for f in os.listdir(corner_dir) if f.endswith('.png')])
-            if files:
-                pix = QPixmap(os.path.join(corner_dir, files[0]))
-                if not pix.isNull():
-                    self._pix = pix
+        if not os.path.isdir(corner_dir):
+            return
+        files = sorted([f for f in os.listdir(corner_dir) if f.endswith('.png')])
+        for f in files[:40]:
+            pix = QPixmap(os.path.join(corner_dir, f))
+            if not pix.isNull():
+                self._frames.append(pix)
+
+    def _tick(self):
+        if self._frames:
+            self._frame_idx = (self._frame_idx + 1) % len(self._frames)
+            self.update()
+
+    def stop(self):
+        if self._timer:
+            self._timer.stop()
 
     def paintEvent(self, event):
         try:
             p = QPainter(self)
-            p.setRenderHint(QPainter.SmoothPixmapTransform, False)
-            if self._pix and not self._pix.isNull():
-                p.drawPixmap(0, 0, self.width(), self.height(), self._pix)
+            if self._frames:
+                pix = self._frames[self._frame_idx]
+                p.drawPixmap(0, 0, self.width(), self.height(), pix)
             p.end()
         except Exception:
             pass
@@ -402,8 +409,7 @@ class V7Menu(QWidget):
         self._outside_timer.stop()
         # 显式停止子组件定时器，避免销毁时仍触发导致崩溃
         if hasattr(self, '_corner_pet') and self._corner_pet:
-            if hasattr(self._corner_pet, '_timer') and self._corner_pet._timer:
-                self._corner_pet._timer.stop()
+            self._corner_pet.stop()
         self.closed.emit()
         super().closeEvent(event)
 
