@@ -47,7 +47,7 @@ class CornerPetWidget(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
         pix = self._frames[self._frame_idx]
-        scaled = pix.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled = pix.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.FastTransformation)
         x = (self.width() - scaled.width()) // 2
         y = (self.height() - scaled.height()) // 2
         p.drawPixmap(x, y, scaled)
@@ -95,7 +95,7 @@ class V7MenuItem(QWidget):
             p.drawRoundedRect(2, 2, self.width()-4, self.height()-4, 8, 8)
         # 图标
         if self._icon and not self._icon.isNull():
-            p.drawPixmap(14, 9, self._icon.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            p.drawPixmap(14, 9, self._icon.scaled(20, 20, Qt.KeepAspectRatio, Qt.FastTransformation))
         # 文字
         p.setPen(QColor(220, 200, 160))
         p.setFont(QFont("Microsoft YaHei", 10))
@@ -146,7 +146,7 @@ class V7ToggleItem(QWidget):
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(2, 2, self.width()-4, self.height()-4, 8, 8)
         if self._icon and not self._icon.isNull():
-            p.drawPixmap(14, 9, self._icon.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            p.drawPixmap(14, 9, self._icon.scaled(20, 20, Qt.KeepAspectRatio, Qt.FastTransformation))
         p.setPen(QColor(220, 200, 160))
         p.setFont(QFont("Microsoft YaHei", 10))
         p.drawText(44, 24, self._text)

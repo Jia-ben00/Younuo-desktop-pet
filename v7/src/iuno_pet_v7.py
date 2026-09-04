@@ -481,17 +481,39 @@ class DangoWidget(QWidget):
             self._look_x *= 0.9
             self._look_y *= 0.9
 
-        # ---- 绘制团子（带旋转/形变） ----
-        p.save()
-        # 确保坐标有效
-        if not (0 <= cx <= 10000 and 0 <= cy <= 10000):
-            cx, cy = w/2, h/2
-        p.translate(int(cx), int(cy))
-        if rot != 0 or tilt != 0 or look_rot != 0:
-            total_rot = rot + look_rot + (math.sin(t * 1.5) * 2 if tilt < 0 else 0)
-            p.rotate(total_rot)
+        # ---- 绘制团子（带translate/scale，无rotate） ----
+        # 计算形变参数
+        info = EMOTION_DANGO.get(self._emotion, EMOTION_DANGO['calm'])
+        sx, sy = info['scale']
+        bounce = info['bounce']
+        shake = info['shake']
+        stretch = info['stretch']
 
-        # 选择图片：惊讶时可能用peeking动画
+        # 动画偏移
+        bounce_y = 0
+        if bounce > 0:
+            bounce_y = abs(math.sin(t * 8)) * 8 * bounce
+        elif bounce < 0:
+            bounce_y = math.sin(t * 3) * 3 * abs(bounce)
+        shake_x = math.sin(t * 30) * 3 * shake if shake > 0 else 0
+
+        # 平静呼吸
+        breath = 1.0
+        if self._emotion == 'calm':
+            breath = 1.0 + math.sin(t * 2) * 0.015
+
+        # 目标绘制尺寸
+        base_w = w * 0.82 * sx * breath * self._cur_scale
+        base_h = h * 0.82 * sy * breath * self._cur_scale * (1 + stretch)
+
+        cx = w / 2 + shake_x
+        cy = h * 0.48 + bounce_y
+
+        p.save()
+        p.translate(int(cx), int(cy))
+        # 注意：rotate操作在PyQt5 5.15.11下会导致随机崩溃，已移除
+
+        # 选择图片
         draw_pix = None
         if self._use_peeking and self._peeking_frames:
             idx = int(t * 10) % len(self._peeking_frames)
@@ -503,7 +525,6 @@ class DangoWidget(QWidget):
                 draw_pix = self._dango_pix.get(self._emotion, self._dango_pix.get('calm'))
 
         if draw_pix and not draw_pix.isNull() and draw_pix.width() > 0 and draw_pix.height() > 0:
-            # 保持图片比例
             pix_ratio = draw_pix.width() / draw_pix.height()
             if base_w / base_h > pix_ratio:
                 draw_h = base_h
@@ -511,23 +532,13 @@ class DangoWidget(QWidget):
             else:
                 draw_w = base_w
                 draw_h = draw_w / pix_ratio
-
             dx = -draw_w / 2
             dy = -draw_h / 2
-
-            # 绘制图片（使用简单重载，避免QRectF重载在PyQt5 5.15.11下的潜在崩溃）
             p.drawPixmap(int(dx), int(dy), int(draw_w), int(draw_h), draw_pix)
         p.restore()
 
         # ---- 特效粒子 ----
-        self._draw_effect(p, w, h, cx, cy)
-
-        # ---- 语音气泡 ----
-        if self._bubble_text:
-            elapsed = time.time() - self._bubble_time
-            if elapsed < 4.0:
-                alpha = 1.0 if elapsed < 3.0 else max(0, 1.0 - (elapsed - 3.0) / 1.0)
-                self._draw_bubble(p, w, alpha)
+        self._draw_effect(p, w, h, int(cx), int(cy))
 
         p.end()
 
@@ -986,7 +997,18 @@ class PetWindow(QWidget):
             self._v7_menu = None
         self._v7_menu = V7Menu(self)
         self._v7_menu.closed.connect(self._on_menu_closed)
-        self._v7_menu.popup(pos)
+        # V7Menu是QWidget不是QMenu，用move+show代替popup
+        screen = QApplication.primaryScreen().availableGeometry()
+        mx = pos.x()
+        my = pos.y()
+        if mx + self._v7_menu.width() > screen.right():
+            mx = screen.right() - self._v7_menu.width()
+        if my + self._v7_menu.height() > screen.bottom():
+            my = screen.bottom() - self._v7_menu.height()
+        self._v7_menu.move(max(0, mx), max(0, my))
+        self._v7_menu.show()
+        self._v7_menu.raise_()
+        self._v7_menu.activateWindow()
 
     def _on_menu_closed(self):
         self._ui_open = False
