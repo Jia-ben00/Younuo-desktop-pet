@@ -307,6 +307,11 @@ class DangoWidget(QWidget):
         self._video_frames = []  # 平静状态视频帧
         self._video_idx = 0
         self._video_timer = None
+        # V9：随机形象
+        self._random_pixmaps = []  # 所有可用形象列表
+        self._random_current = None  # 当前随机形象
+        self._random_mode = True  # 默认启用随机模式
+        self._random_timer = None  # 每10秒切换定时器
         self._load_all()
 
         self._emotion = 'happy'
@@ -360,6 +365,26 @@ class DangoWidget(QWidget):
                 self._video_timer = QTimer(self)
                 self._video_timer.timeout.connect(self._video_tick)
                 self._video_timer.start(150)  # 降低帧率，减少CPU占用和重绘频率
+        # V9：加载design assets图片（design_*.png）
+        for f in sorted(os.listdir(DANGO_DIR)):
+            if f.startswith('design_') and f.lower().endswith('.png'):
+                try:
+                    pix = QPixmap(os.path.join(DANGO_DIR, f))
+                    if not pix.isNull():
+                        self._random_pixmaps.append(pix)
+                except Exception: pass
+        # V9：将peeking帧前10帧加入随机形象池
+        for pix in self._peeking_frames[:10]:
+            self._random_pixmaps.append(pix)
+        # V9：将现有情绪图片也加入随机形象池
+        for emo, pix in self._dango_pix.items():
+            self._random_pixmaps.append(pix)
+        # V9：启动每10秒随机切换定时器
+        if self._random_pixmaps:
+            self._random_current = self._random_pixmaps[0]  # 启动时先显示第一张
+            self._random_timer = QTimer(self)
+            self._random_timer.timeout.connect(self._switch_random_image)
+            self._random_timer.start(10000)  # 每10秒切换一次
 
     def _video_tick(self):
         try:
@@ -367,6 +392,19 @@ class DangoWidget(QWidget):
                 return
             self._video_idx = (self._video_idx + 1) % len(self._video_frames)
             if self._emotion == 'calm':
+                self.update()
+        except Exception:
+            pass
+
+    def _switch_random_image(self):
+        # V9：随机切换桌宠形象
+        try:
+            if self._random_pixmaps and self._random_mode:
+                # 避免连续两次选到同一张
+                new_pix = random.choice(self._random_pixmaps)
+                while len(self._random_pixmaps) > 1 and new_pix is self._random_current:
+                    new_pix = random.choice(self._random_pixmaps)
+                self._random_current = new_pix
                 self.update()
         except Exception:
             pass
@@ -476,7 +514,10 @@ class DangoWidget(QWidget):
         p.translate(int(cx), int(cy))
 
         draw_pix = None
-        if self._use_peeking and self._peeking_frames:
+        # V9：随机模式优先显示随机形象
+        if self._random_mode and self._random_current and not self._use_peeking:
+            draw_pix = self._random_current
+        elif self._use_peeking and self._peeking_frames:
             idx = int(t * 10) % len(self._peeking_frames)
             draw_pix = self._peeking_frames[idx]
         else:
