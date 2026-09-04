@@ -208,7 +208,7 @@ class LLMWoker(QThread):
         m = re.search(r'【情绪[：:]\s*([^】]+)】', content)
         if m:
             emo_map = {'开心':'happy','生气':'angry','难过':'sad','惊讶':'surprised','傲娇':'tsundere','平静':'calm'}
-            emotion = emo_map.get(m.group(1).strip(), 'calm')
+            emotion = emo_map.get(m.group(1).strip(), 'tsundere')
         m = re.search(r'【动作[：:]\s*([^】]+)】', content)
         if m: action = m.group(1).strip()
         m = re.search(r'【特效[：:]\s*([^】]+)】', content)
@@ -306,7 +306,7 @@ class DangoWidget(QWidget):
         self._video_timer = None
         self._load_all()
 
-        self._emotion = 'calm'
+        self._emotion = 'tsundere'
         self._emotion_start = time.time()
         self._time = 0.0
         self._target_scale = 1.0
@@ -385,7 +385,7 @@ class DangoWidget(QWidget):
             self._time += 0.033
             dur = EMOTION_DURATION.get(self._emotion, 0)
             if dur > 0 and time.time() - self._emotion_start > dur:
-                self._emotion = 'calm'
+                self._emotion = 'tsundere'
                 self._emotion_start = time.time()
                 self._use_peeking = False
             self._cur_scale += (self._target_scale - self._cur_scale) * 0.15
@@ -422,21 +422,16 @@ class DangoWidget(QWidget):
     def _render(self):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
-        # SmoothPixmapTransform已移除：PyQt5 5.15.11会触发0xC0000409崩溃
 
         w, h = self.width(), self.height()
-        info = EMOTION_DANGO.get(self._emotion, EMOTION_DANGO['calm'])
+        info = EMOTION_DANGO.get(self._emotion, EMOTION_DANGO['tsundere'])
         t = self._time
 
-        # ---- 阴影已移除（QRadialGradient可能导致崩溃） ----
-
-        # ---- 计算形变参数 ----
+        # 形变参数
         sx, sy = info['scale']
         bounce = info['bounce']
         shake = info['shake']
         stretch = info['stretch']
-        rot = info['rot']
-        tilt = info.get('tilt', 0)
 
         # 动画偏移
         bounce_y = 0
@@ -444,85 +439,45 @@ class DangoWidget(QWidget):
             bounce_y = abs(math.sin(t * 8)) * 8 * bounce
         elif bounce < 0:
             bounce_y = math.sin(t * 3) * 3 * abs(bounce)
-
         shake_x = math.sin(t * 30) * 3 * shake if shake > 0 else 0
 
-        # 平静呼吸
+        # 呼吸
         breath = 1.0
         if self._emotion == 'calm':
             breath = 1.0 + math.sin(t * 2) * 0.015
 
-        # 说话时轻微弹跳
+        # 说话弹跳
         speak_bounce = abs(math.sin(t * 12)) * 3 if self._speaking else 0
 
-        # 目标绘制尺寸
+        # 绘制尺寸
         base_w = w * 0.82 * sx * breath * self._cur_scale
         base_h = h * 0.82 * sy * breath * self._cur_scale * (1 + stretch)
 
         cx = w / 2 + shake_x
         cy = h * 0.48 + bounce_y + speak_bounce
 
-        # ---- 鼠标跟随：团子轻微倾斜/偏移看向鼠标 ----
-        look_rot = 0.0
+        # 鼠标跟随偏移
         if self._mouse_inside and self._emotion in ('calm', 'happy', 'surprised', 'tsundere'):
-            # 目标偏移：鼠标相对中心的方向
-            target_lx = (self._mouse_x - 0.5) * 2.0  # -1~1
+            target_lx = (self._mouse_x - 0.5) * 2.0
             target_ly = (self._mouse_y - 0.5) * 2.0
-            # 平滑插值
             self._look_x += (target_lx - self._look_x) * 0.12
             self._look_y += (target_ly - self._look_y) * 0.12
-            # 轻微偏移（像团子探身看鼠标）
             cx += self._look_x * 6.0
             cy += self._look_y * 4.0
-            # 轻微旋转朝向鼠标
-            look_rot = self._look_x * 5.0  # 最多5度
         else:
-            # 鼠标离开时缓慢回正
             self._look_x *= 0.9
             self._look_y *= 0.9
 
-        # ---- 绘制团子（带translate/scale，无rotate） ----
-        # 计算形变参数
-        info = EMOTION_DANGO.get(self._emotion, EMOTION_DANGO['calm'])
-        sx, sy = info['scale']
-        bounce = info['bounce']
-        shake = info['shake']
-        stretch = info['stretch']
-
-        # 动画偏移
-        bounce_y = 0
-        if bounce > 0:
-            bounce_y = abs(math.sin(t * 8)) * 8 * bounce
-        elif bounce < 0:
-            bounce_y = math.sin(t * 3) * 3 * abs(bounce)
-        shake_x = math.sin(t * 30) * 3 * shake if shake > 0 else 0
-
-        # 平静呼吸
-        breath = 1.0
-        if self._emotion == 'calm':
-            breath = 1.0 + math.sin(t * 2) * 0.015
-
-        # 目标绘制尺寸
-        base_w = w * 0.82 * sx * breath * self._cur_scale
-        base_h = h * 0.82 * sy * breath * self._cur_scale * (1 + stretch)
-
-        cx = w / 2 + shake_x
-        cy = h * 0.48 + bounce_y
-
+        # 绘制团子（translate/scale，无rotate）
         p.save()
         p.translate(int(cx), int(cy))
-        # 注意：rotate操作在PyQt5 5.15.11下会导致随机崩溃，已移除
 
-        # 选择图片
         draw_pix = None
         if self._use_peeking and self._peeking_frames:
             idx = int(t * 10) % len(self._peeking_frames)
             draw_pix = self._peeking_frames[idx]
         else:
-            if self._emotion == 'calm' and self._video_frames:
-                draw_pix = self._video_frames[self._video_idx]
-            else:
-                draw_pix = self._dango_pix.get(self._emotion, self._dango_pix.get('calm'))
+            draw_pix = self._dango_pix.get(self._emotion, self._dango_pix.get('tsundere'))
 
         if draw_pix and not draw_pix.isNull() and draw_pix.width() > 0 and draw_pix.height() > 0:
             pix_ratio = draw_pix.width() / draw_pix.height()
@@ -537,7 +492,7 @@ class DangoWidget(QWidget):
             p.drawPixmap(int(dx), int(dy), int(draw_w), int(draw_h), draw_pix)
         p.restore()
 
-        # ---- 特效粒子 ----
+        # 特效粒子
         self._draw_effect(p, w, h, int(cx), int(cy))
 
         p.end()
@@ -947,7 +902,7 @@ class PetWindow(QWidget):
         for msg in history: messages.append(msg)
         messages.append({'role': 'user', 'content': user_text})
         self._pet.set_bubble('…')
-        self._pet.set_emotion('calm')
+        self._pet.set_emotion('tsundere')
         self._llm_worker = LLMWoker(self.cfg, messages, self)
         self._llm_worker.response_ready.connect(self._on_llm_response)
         self._llm_worker.error_occurred.connect(self._on_llm_error)
@@ -1125,7 +1080,7 @@ def main():
     if '--selftest' in sys.argv:
         w = PetWindow()
         w.show()
-        emotions = ['calm', 'happy', 'angry', 'sad', 'surprised', 'tsundere']
+        emotions = ['happy', 'angry', 'sad', 'surprised', 'tsundere']
         for i, emo in enumerate(emotions):
             QTimer.singleShot(500 + i * 800, lambda e=emo: w._pet.set_emotion(e))
         QTimer.singleShot(6500, app.quit)
