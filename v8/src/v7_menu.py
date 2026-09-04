@@ -6,12 +6,18 @@ V7菜单 - 月夜毛玻璃二次元风格（稳定版）
 简化版：删除随机语气词/超大/API设置
 """
 import os
+import sys
 import random
 from PyQt5.QtCore import Qt, QTimer, QPoint, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QBrush, QLinearGradient, QFont, QIcon
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QApplication
 
-ANIMATION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'animations')
+def resource_path(rel):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, rel)
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), rel)
+
+ANIMATION_DIR = resource_path(os.path.join('assets', 'animations'))
 
 
 class CornerPetWidget(QWidget):
@@ -24,7 +30,7 @@ class CornerPetWidget(QWidget):
 
     def _load_image(self):
         # 优先用chibi.png（新搜索的Q版形象），fallback用corner_pet第一帧
-        sticker_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'stickers', 'dango')
+        sticker_dir = resource_path(os.path.join('assets', 'stickers', 'dango'))
         chibi_path = os.path.join(sticker_dir, 'chibi.png')
         if os.path.exists(chibi_path):
             pix = QPixmap(chibi_path)
