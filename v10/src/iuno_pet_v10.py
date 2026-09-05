@@ -8,7 +8,7 @@ r"""
 - 语音修复：开关控制+打断上一条
 - 透明无边框置顶，左键拖动，右键菜单，滚轮缩放
 """
-import sys, os, json, time, random, math, winsound
+import sys, os, json, time, random, math, winsound, shutil
 from datetime import datetime, timedelta
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QHBoxLayout,
@@ -276,6 +276,9 @@ class VoiceManager(QObject):
     def __init__(self):
         super().__init__()
         self.enabled = True
+        # 使用EXE同目录的语音文件（避免_MEIPASS路径问题）
+        exe_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+        self._voice_dir = os.path.join(exe_dir, 'voice_v10')
 
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -291,11 +294,10 @@ class VoiceManager(QObject):
     def play(self, voice_name):
         if not self.enabled:
             return
-        voice_file = os.path.join(VOICE_DIR, f'{voice_name}.wav')
+        voice_file = os.path.join(self._voice_dir, f'{voice_name}.wav')
         if not os.path.exists(voice_file):
             return
         try:
-            # 先停止上一条，再异步播放新的
             winsound.PlaySound(None, winsound.SND_PURGE)
             winsound.PlaySound(voice_file, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
         except Exception:
@@ -743,8 +745,9 @@ class DangoWidget(QWidget):
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
-        new_size = max(100, min(400, self.width() + delta // 8))
-        self.setFixedSize(new_size, new_size)
+        new_w = max(100, min(400, self.width() + delta // 8))
+        new_h = int(new_w * 230 / 200)
+        self.setFixedSize(new_w, new_h)
 
     def _toggle_topmost(self, on):
         flags = self.windowFlags()
@@ -778,6 +781,17 @@ def main():
         import traceback
         traceback.print_exception(exc_type, exc_value, exc_tb)
     sys.excepthook = excepthook
+
+    # 打包后：把语音文件从_MEIPASS复制到EXE同目录（winsound需要稳定路径）
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        meipass_voice = os.path.join(sys._MEIPASS, 'assets', 'voice_v10')
+        target_voice = os.path.join(exe_dir, 'voice_v10')
+        if os.path.exists(meipass_voice) and not os.path.exists(target_voice):
+            try:
+                shutil.copytree(meipass_voice, target_voice)
+            except Exception:
+                pass
 
     pet = DangoWidget()
 

@@ -498,7 +498,7 @@ class V7Menu(QWidget):
             sb.setFixedHeight(24)
             sb.setCursor(Qt.PointingHandCursor)
             self._size_buttons[sz] = sb
-            sb.clicked.connect(lambda checked=False, s=sz: (self.close(), self._pet.setFixedSize(s, s)))
+            sb.clicked.connect(lambda checked=False, s=sz: (self.close(), self._pet.setFixedSize(s, int(s * 230 / 200))))
             sl.addWidget(sb)
         sl.addStretch()
         layout.addWidget(size_widget)
