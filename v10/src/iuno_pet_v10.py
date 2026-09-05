@@ -446,8 +446,25 @@ class VoiceManagerV10(QObject):
     def __init__(self):
         super().__init__()
         self.enabled = True
-        exe_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-        self._voice_dir = os.path.join(exe_dir, 'voice_v10')
+        self._voice_dir = self._find_voice_dir()
+
+    def _find_voice_dir(self):
+        # 按优先级搜索语音目录
+        candidates = []
+        if getattr(sys, 'frozen', False):
+            exe_dir = os.path.dirname(sys.executable)
+            candidates.append(os.path.join(exe_dir, 'voice_v10'))
+            if hasattr(sys, '_MEIPASS'):
+                candidates.append(os.path.join(sys._MEIPASS, 'assets', 'voice_v10'))
+                candidates.append(os.path.join(sys._MEIPASS, 'voice_v10'))
+        else:
+            base = os.path.dirname(os.path.abspath(__file__))
+            candidates.append(os.path.join(base, '..', 'assets', 'voice_v10'))
+            candidates.append(os.path.join(base, '..', '..', 'dist', 'voice_v10'))
+        for d in candidates:
+            if os.path.exists(d) and len([f for f in os.listdir(d) if f.endswith('.wav')]) > 0:
+                return d
+        return candidates[0] if candidates else '' 
 
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -1044,6 +1061,8 @@ class PetWindow(QWidget):
         self.affection = AffectionManager()
         self.voice_v10 = VoiceManagerV10()
         self._v10_state = 'qiaotui'
+        # 同步语音开关初始状态
+        self.voice_v10.set_enabled(self.cfg.get('tts', {}).get('enabled', True))
         self._food_timer = QTimer(self)
         self._food_timer.timeout.connect(self.growth.tick_food)
         self._food_timer.start(60000)
@@ -1110,17 +1129,14 @@ class PetWindow(QWidget):
 
     def _check_single_click(self):
         if not self._double_click and self._click_time > 0:
-            # 单击按位置触发不同互动
+            # 单击按位置触发不同互动（全部使用V10语音）
             ratio = getattr(self, '_click_y_ratio', 0.5)
             if ratio < 0.35:
-                # 头部 = 摸头
-                self._trigger('pat')
+                self.v10_interact('poke')
             elif ratio < 0.65:
-                # 脸部 = 戳脸（V10）
                 self.v10_interact('poke')
             else:
-                # 身体 = 喂食
-                self._trigger('feed')
+                self.v10_interact('feed')
         self._double_click = False
 
     def wheelEvent(self, e):
