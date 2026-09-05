@@ -419,7 +419,7 @@ class V7Menu(QWidget):
     def __init__(self, pet, parent=None):
         super().__init__(parent, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self._pet = pet
-        self.setFixedWidth(340)
+        self.setFixedWidth(260)
         self._drag_pos = None
         self._outside_timer = QTimer(self)
         self._outside_timer.timeout.connect(self._check_outside)

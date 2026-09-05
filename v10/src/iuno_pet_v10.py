@@ -550,7 +550,7 @@ class DangoWidget(QWidget):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(240, 240)
+        self.setFixedSize(200, 230)
 
         # 状态
         self.current_state = 'qiaotui'
@@ -643,8 +643,13 @@ class DangoWidget(QWidget):
 
         if action == 'poke':
             self.set_state('daimeng')
+            self._play_current_line()
         elif action == 'drag':
             self.set_state('haixiu')
+            self._play_current_line()
+        elif action == 'play':
+            self.set_state('kaixin')
+            self._play_current_line()
         elif action == 'feed':
             if self.growth.can_feed():
                 success, new_level = self.growth.feed()
@@ -654,6 +659,10 @@ class DangoWidget(QWidget):
                     self._play_current_line()
                     if new_level > 0:
                         self.voice.play('levelup')
+            else:
+                # 没有月亮糕时也说一句话
+                self.set_state('shangxin')
+                self._play_current_line()
         elif action == 'idle_talk':
             # 随机状态
             states = ['qiaotui', 'haixiu', 'sajiao', 'kaixin', 'daimeng']
@@ -710,6 +719,7 @@ class DangoWidget(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self._drag_pos = event.globalPos() - self.frameGeometry().topLeft()
+            self._press_pos = event.globalPos()
             event.accept()
         elif event.button() == Qt.RightButton:
             self._show_menu(event.globalPos())
@@ -722,9 +732,14 @@ class DangoWidget(QWidget):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
+            moved = (event.globalPos() - self._press_pos).manhattanLength() if hasattr(self, '_press_pos') else 0
             self._drag_pos = None
-            # 点击（非拖动）→戳脸互动
-            self.interact('poke')
+            if moved > 10:
+                # 拖拽→害羞互动
+                self.interact('drag')
+            else:
+                # 点击（非拖动）→戳脸互动
+                self.interact('poke')
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
