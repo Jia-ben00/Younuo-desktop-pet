@@ -19,6 +19,9 @@ from PyQt5.QtGui import (QPainter, QPixmap, QColor, QFont, QIcon, QCursor,
                          QLinearGradient, QBrush, QPen, QPainterPath)
 from PyQt5.QtMultimedia import QSoundEffect, QMediaPlayer, QMediaContent
 
+# V10菜单
+from v7_menu import V7Menu
+
 # ============================================================
 # 资源路径
 # ============================================================
@@ -621,49 +624,18 @@ class DangoWidget(QWidget):
         new_size = max(100, min(400, self.width() + delta // 8))
         self.setFixedSize(new_size, new_size)
 
+    def _toggle_topmost(self, on):
+        flags = self.windowFlags()
+        if on:
+            flags |= Qt.WindowStaysOnTopHint
+        else:
+            flags &= ~Qt.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
+        self.show()
+
     def _show_menu(self, pos):
-        menu = QMenu(self)
-        menu.setStyleSheet('''
-            QMenu { background: #1A1540; color: #E0E0FF; border: 1px solid #FFD700;
-                    border-radius: 8px; padding: 5px; font-size: 13px; }
-            QMenu::item { padding: 8px 24px; border-radius: 4px; }
-            QMenu::item:selected { background: #4A3F8C; color: #FFD700; }
-        ''')
-
-        # 喂食
-        feed_action = menu.addAction(f'喂食月亮糕（{self.growth.food}个）')
-        feed_action.triggered.connect(lambda: self.interact('feed'))
-
-        # 随机互动
-        talk_action = menu.addAction('随机互动')
-        talk_action.triggered.connect(lambda: self.interact('idle_talk'))
-
-        menu.addSeparator()
-
-        # 状态信息
-        info_action = menu.addAction(
-            f'Lv.{self.growth.level} | {self.affection.get_tier_name()}({self.affection.affection})')
-        info_action.setEnabled(False)
-
-        menu.addSeparator()
-
-        # 语音开关
-        voice_action = menu.addAction('语音：开' if self.voice.enabled else '语音：关')
-        voice_action.triggered.connect(self._toggle_voice)
-
-        # 调整大小
-        size_menu = menu.addMenu('调整大小')
-        for s in [120, 160, 200, 250, 300]:
-            act = size_menu.addAction(f'{s}px')
-            act.triggered.connect(lambda checked, sz=s: self.setFixedSize(sz, sz))
-
-        menu.addSeparator()
-
-        # 退出
-        quit_action = menu.addAction('退出')
-        quit_action.triggered.connect(QApplication.instance().quit)
-
-        menu.exec_(pos)
+        self._menu = V7Menu(self)
+        self._menu.popup(pos)
 
     def _toggle_voice(self):
         self.voice.set_enabled(not self.voice.enabled)
