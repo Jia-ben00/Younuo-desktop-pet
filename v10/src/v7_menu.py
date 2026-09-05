@@ -10,7 +10,7 @@ import sys
 import random
 from PyQt5.QtCore import Qt, QTimer, QPoint, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QBrush, QLinearGradient, QFont, QIcon
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QApplication
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QApplication, QProgressBar
 
 def resource_path(rel):
     if hasattr(sys, '_MEIPASS'):
@@ -348,11 +348,15 @@ class V7Menu(QWidget):
             self._level_label.setText('Lv.%d  %d/%d EXP' % (g.level, g.exp, g.exp_needed()))
             self._exp_bar.setMaximum(max(1, g.exp_needed()))
             self._exp_bar.setValue(g.exp)
-            from iuno_pet_v10 import get_affection_tier
-            tier_name, _ = get_affection_tier(a.affection)
-            self._affection_label.setText('好感度 %s  %d/100' % (tier_name, a.affection))
+            aff = a.affection
+            if aff >= 100: tier_name = '倾心'
+            elif aff >= 80: tier_name = '心动'
+            elif aff >= 50: tier_name = '亲近'
+            elif aff >= 20: tier_name = '熟悉'
+            else: tier_name = '疏离'
+            self._affection_label.setText('好感度 %s  %d/100' % (tier_name, aff))
             self._affection_bar.setMaximum(100)
-            self._affection_bar.setValue(a.affection)
+            self._affection_bar.setValue(aff)
             self._food_label.setText('月亮糕 x%d/30' % g.food)
         except Exception:
             pass
