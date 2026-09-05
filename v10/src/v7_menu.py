@@ -419,7 +419,7 @@ class V7Menu(QWidget):
     def __init__(self, pet, parent=None):
         super().__init__(parent, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self._pet = pet
-        self.setFixedWidth(270)
+        self.setFixedWidth(300)
         self._drag_pos = None
         self._outside_timer = QTimer(self)
         self._outside_timer.timeout.connect(self._check_outside)
@@ -512,6 +512,9 @@ class V7Menu(QWidget):
         self._voice_toggle = V7ToggleItem('🔊', '语音开关', self._pet.voice.enabled)
         self._voice_toggle.toggled.connect(self._pet.voice.set_enabled)
         layout.addWidget(self._voice_toggle)
+        help_item = V7MenuItem('❓', '使用说明')
+        help_item.clicked.connect(lambda: (self.close(), self._pet.show_help()))
+        layout.addWidget(help_item)
         quit_item = V7MenuItem('⏻', '退出程序')
         quit_item.clicked.connect(lambda: (self.close(), QApplication.instance().quit()))
         layout.addWidget(quit_item)

@@ -8,7 +8,7 @@ r"""
 - 语音修复：开关控制+打断上一条
 - 透明无边框置顶，左键拖动，右键菜单，滚轮缩放
 """
-import sys, os, json, time, random, math
+import sys, os, json, time, random, math, ctypes
 from datetime import datetime, timedelta
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QHBoxLayout,
@@ -278,6 +278,7 @@ class VoiceManager(QObject):
         self.enabled = True
         self.player = QMediaPlayer()
         self.player.setVolume(80)
+        self._pending_file = None
 
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -290,21 +291,24 @@ class VoiceManager(QObject):
         except Exception:
             pass
 
+    def _do_play(self):
+        if self._pending_file and os.path.exists(self._pending_file):
+            try:
+                self.player.setMedia(QMediaContent(QUrl.fromLocalFile(self._pending_file)))
+                self.player.play()
+            except Exception:
+                pass
+        self._pending_file = None
+
     def play(self, voice_name):
         if not self.enabled:
             return
-        # 打断上一条
         self.stop()
-
         voice_file = os.path.join(VOICE_DIR, f'{voice_name}.wav')
         if not os.path.exists(voice_file):
             return
-
-        try:
-            self.player.setMedia(QMediaContent(QUrl.fromLocalFile(voice_file)))
-            self.player.play()
-        except Exception:
-            pass
+        self._pending_file = voice_file
+        QTimer.singleShot(50, self._do_play)
 
     def play_line(self, state, tier_idx):
         voice_name = f'{state}_{tier_idx}'
@@ -433,6 +437,118 @@ class ConfessionDialog(QDialog):
             p.drawEllipse(x, y, 2, 2)
 
 # ============================================================
+# 使用说明对话框
+# ============================================================
+class HelpDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(440, 520)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(25, 20, 25, 20)
+        layout.setSpacing(8)
+
+        # 标题
+        title = QLabel('✦ 尤诺团子 · 使用说明 ✦')
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet('font-size: 16px; font-weight: bold; color: #FFD700; font-family: "Microsoft YaHei";')
+        layout.addWidget(title)
+
+        # 内容（滚动区域）
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet('QScrollArea { background: transparent; border: none; } QScrollBar:vertical { background: rgba(50,40,80,100); width: 8px; border-radius: 4px; } QScrollBar::handle:vertical { background: rgba(212,175,55,150); border-radius: 4px; }')
+        content = QWidget()
+        cl = QVBoxLayout(content)
+        cl.setContentsMargins(5, 5, 15, 5)
+        cl.setSpacing(10)
+
+        sections = [
+            ('🐾 基础操作', [
+                '• 左键拖动：移动桌宠位置',
+                '• 右键点击：打开功能菜单',
+                '• 滚轮滚动：调整桌宠大小',
+                '• 左键单击：戳脸互动（呆萌状态）',
+            ]),
+            ('🌙 成长系统', [
+                '• 月亮糕：每5分钟自动产出1个，上限30个',
+                '• 喂食：消耗1个月亮糕，+10经验值',
+                '• 等级：Lv1~Lv20，升级需 N×100 经验',
+                '• 升级解锁：偷看(Lv2)、撒娇(Lv3)、害羞(Lv4)、开心(Lv5)等',
+            ]),
+            ('💗 好感度系统', [
+                '• 5档：疏离(0-19)→熟悉(20-49)→亲近(50-79)→心动(80-99)→倾心(100)',
+                '• 获取：喂食+2(每日前15次)、互动+1(每日前20次)、在线每10分钟+1',
+                '• 不同好感度档位触发不同台词，越高级越亲昵',
+            ]),
+            ('💍 告白解锁', [
+                '• 条件：等级Lv20 AND 好感度100（双满）',
+                '• 达成后触发月光告白场景，进入恋人模式',
+                '• 恋人模式：全局台词切换为倾心档，互动更亲昵',
+            ]),
+            ('🔊 语音系统', [
+                '• 7种状态×5档好感度 = 35句尤诺声线台词',
+                '• 升级/告白专属语音',
+                '• 菜单中可开关语音',
+                '• 触发新语音时自动打断上一条',
+            ]),
+            ('⏳ 状态变化', [
+                '• 2分钟无互动→开心状态（喂食暗示）',
+                '• 5分钟无互动→偷看状态',
+                '• 喂食→翘腿/开心状态',
+                '• 戳脸→呆萌状态',
+            ]),
+        ]
+
+        for sec_title, items in sections:
+            sec_lbl = QLabel(sec_title)
+            sec_lbl.setStyleSheet('color: #FFD700; font-size: 11px; font-weight: bold; font-family: "Microsoft YaHei"; margin-top: 5px;')
+            cl.addWidget(sec_lbl)
+            for item in items:
+                item_lbl = QLabel(item)
+                item_lbl.setWordWrap(True)
+                item_lbl.setStyleSheet('color: #D0C8E0; font-size: 9px; font-family: "Microsoft YaHei"; line-height: 1.4;')
+                cl.addWidget(item_lbl)
+
+        cl.addStretch()
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
+
+        # 关闭按钮
+        close_btn = QPushButton('知道了')
+        close_btn.setFixedHeight(32)
+        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #DAA520, stop:0.5 #FFD700, stop:1 #DAA520);
+                color: #2a1f0a; border: 1px solid rgba(255,220,130,200);
+                border-radius: 16px; font-family: "Microsoft YaHei";
+                font-size: 10pt; font-weight: bold;
+            }
+            QPushButton:hover { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #FFD700, stop:0.5 #FFEC8B, stop:1 #FFD700); }
+        """)
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
+    def paintEvent(self, event):
+        try:
+            p = QPainter(self)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            grad = QLinearGradient(0, 0, 0, self.height())
+            grad.setColorAt(0, QColor(15, 12, 40, 245))
+            grad.setColorAt(1, QColor(35, 22, 60, 245))
+            path = QPainterPath()
+            path.addRoundedRect(5, 5, self.width()-10, self.height()-10, 18, 18)
+            p.fillPath(path, grad)
+            p.setPen(QPen(QColor(212, 175, 55, 150), 1.5))
+            p.drawPath(path)
+            p.end()
+        except Exception:
+            pass
+
+# ============================================================
 # 桌宠主组件
 # ============================================================
 class DangoWidget(QWidget):
@@ -442,7 +558,7 @@ class DangoWidget(QWidget):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(200, 200)
+        self.setFixedSize(240, 240)
 
         # 状态
         self.current_state = 'qiaotui'
@@ -580,7 +696,6 @@ class DangoWidget(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.setRenderHint(QPainter.SmoothPixmapTransform)
 
         # 呼吸动画
         self._anim_time += 0.05
@@ -639,6 +754,10 @@ class DangoWidget(QWidget):
 
     def _toggle_voice(self):
         self.voice.set_enabled(not self.voice.enabled)
+
+    def show_help(self):
+        dlg = HelpDialog(self)
+        dlg.exec_()
 
 # ============================================================
 # 主程序
