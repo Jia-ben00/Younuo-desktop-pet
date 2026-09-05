@@ -443,13 +443,12 @@ def get_affection_tier(affection):
 
 
 class VoiceManagerV10(QObject):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.enabled = True
         self._voice_dir = self._find_voice_dir()
 
     def _find_voice_dir(self):
-        # 按优先级搜索语音目录
         candidates = []
         if getattr(sys, 'frozen', False):
             exe_dir = os.path.dirname(sys.executable)
@@ -464,7 +463,7 @@ class VoiceManagerV10(QObject):
         for d in candidates:
             if os.path.exists(d) and len([f for f in os.listdir(d) if f.endswith('.wav')]) > 0:
                 return d
-        return candidates[0] if candidates else '' 
+        return candidates[0] if candidates else ''
 
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -1059,7 +1058,7 @@ class PetWindow(QWidget):
         # V10 成长系统
         self.growth = GrowthManager()
         self.affection = AffectionManager()
-        self.voice_v10 = VoiceManagerV10()
+        self.voice_v10 = VoiceManagerV10(self)
         self._v10_state = 'qiaotui'
         # 同步语音开关初始状态
         self.voice_v10.set_enabled(self.cfg.get('tts', {}).get('enabled', True))
