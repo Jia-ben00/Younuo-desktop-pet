@@ -8,7 +8,7 @@ r"""
 - 语音修复：开关控制+打断上一条
 - 透明无边框置顶，左键拖动，右键菜单，滚轮缩放
 """
-import sys, os, json, time, random, math, ctypes
+import sys, os, json, time, random, math
 from datetime import datetime, timedelta
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QHBoxLayout,
