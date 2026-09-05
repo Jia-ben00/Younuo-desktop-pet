@@ -450,8 +450,9 @@ class HelpDialog(QDialog):
         # 内容（滚动区域）
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet('QScrollArea { background: transparent; border: none; } QScrollBar:vertical { background: rgba(50,40,80,100); width: 8px; border-radius: 4px; } QScrollBar::handle:vertical { background: rgba(212,175,55,150); border-radius: 4px; }')
+        scroll.setStyleSheet('QScrollArea { background: rgba(20,15,45,200); border: none; border-radius: 8px; } QScrollBar:vertical { background: rgba(50,40,80,100); width: 8px; border-radius: 4px; } QScrollBar::handle:vertical { background: rgba(212,175,55,150); border-radius: 4px; }')
         content = QWidget()
+        content.setStyleSheet('background: transparent;')
         cl = QVBoxLayout(content)
         cl.setContentsMargins(5, 5, 15, 5)
         cl.setSpacing(10)
@@ -747,7 +748,7 @@ class DangoWidget(QWidget):
         self.voice.set_enabled(not self.voice.enabled)
 
     def show_help(self):
-        dlg = HelpDialog(self)
+        dlg = HelpDialog()
         dlg.exec_()
 
 # ============================================================
