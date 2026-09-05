@@ -8,7 +8,7 @@ r"""
 - 语音修复：开关控制+打断上一条
 - 透明无边框置顶，左键拖动，右键菜单，滚轮缩放
 """
-import sys, os, json, time, random, math
+import sys, os, json, time, random, math, winsound
 from datetime import datetime, timedelta
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QHBoxLayout,
@@ -276,9 +276,6 @@ class VoiceManager(QObject):
     def __init__(self):
         super().__init__()
         self.enabled = True
-        self.player = QMediaPlayer()
-        self.player.setVolume(80)
-        self._pending_file = None
 
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -287,28 +284,22 @@ class VoiceManager(QObject):
 
     def stop(self):
         try:
-            self.player.stop()
+            winsound.PlaySound(None, winsound.SND_PURGE)
         except Exception:
             pass
-
-    def _do_play(self):
-        if self._pending_file and os.path.exists(self._pending_file):
-            try:
-                self.player.setMedia(QMediaContent(QUrl.fromLocalFile(self._pending_file)))
-                self.player.play()
-            except Exception:
-                pass
-        self._pending_file = None
 
     def play(self, voice_name):
         if not self.enabled:
             return
-        self.stop()
         voice_file = os.path.join(VOICE_DIR, f'{voice_name}.wav')
         if not os.path.exists(voice_file):
             return
-        self._pending_file = voice_file
-        QTimer.singleShot(50, self._do_play)
+        try:
+            # 先停止上一条，再异步播放新的
+            winsound.PlaySound(None, winsound.SND_PURGE)
+            winsound.PlaySound(voice_file, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+        except Exception:
+            pass
 
     def play_line(self, state, tier_idx):
         voice_name = f'{state}_{tier_idx}'
@@ -444,7 +435,7 @@ class HelpDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(440, 520)
+        self.setFixedSize(440, 620)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(25, 20, 25, 20)
