@@ -27,6 +27,15 @@ from PyQt5.QtSvg import QSvgRenderer
 # V7菜单
 from v7_menu import V7Menu
 
+# 纯逻辑层（等级/经验/好感度/台词解析）—— 与 GUI 解耦，可单独测试
+from pet_core import (
+    MAX_LEVEL,
+    GrowthManager as _GrowthManagerCore,
+    AffectionManager as _AffectionManagerCore,
+    get_affection_tier,
+    parse_reply as _parse_reply,
+)
+
 # ============================================================
 # 资源路径
 # ============================================================
@@ -212,21 +221,8 @@ class LLMWoker(QThread):
 
     @staticmethod
     def _parse_tags(content):
-        emotion = 'calm'
-        action = '待机'
-        effect = '无'
-        m = re.search(r'【情绪[：:]\s*([^】]+)】', content)
-        if m:
-            emo_map = {'开心':'happy','生气':'angry','难过':'sad','惊讶':'surprised','傲娇':'tsundere','平静':'calm'}
-            emotion = emo_map.get(m.group(1).strip(), 'happy')
-        m = re.search(r'【动作[：:]\s*([^】]+)】', content)
-        if m: action = m.group(1).strip()
-        m = re.search(r'【特效[：:]\s*([^】]+)】', content)
-        if m: effect = m.group(1).strip()
-        text = re.sub(r'【[^】]*】', '', content).strip()
-        text = re.sub(r'^(情绪|动作|特效|视频)[：:].*$', '', text, flags=re.MULTILINE).strip()
-        if not text: text = '……'
-        return text, emotion, action, effect
+        # 实现已抽到 pet_core.parse_reply（纯函数、可单测）
+        return _parse_reply(content)
 
 # ============================================================
 # TTS Worker
@@ -306,140 +302,18 @@ class TTSWorker(QThread):
 # ============================================================
 # V10 成长系统
 # ============================================================
-class GrowthManager:
+class GrowthManager(_GrowthManagerCore):
+    """V10 成长系统 —— 逻辑已抽到 pet_core，这里只负责定位存档路径。"""
+
     def __init__(self):
-        self.level = 1
-        self.exp = 0
-        self.food = 5
-        self.last_food_time = time.time()
-        self.lover_mode = False
-        self.load()
-
-    def load(self):
-        try:
-            with open(growth_data_path(), 'r', encoding='utf-8') as f:
-                d = json.load(f)
-            self.level = d.get('level', 1)
-            self.exp = d.get('exp', 0)
-            self.food = d.get('food', 5)
-            self.last_food_time = d.get('last_food_time', time.time())
-            self.lover_mode = d.get('lover_mode', False)
-        except Exception:
-            pass
-        self._offline_food()
-
-    def save(self):
-        try:
-            with open(growth_data_path(), 'w', encoding='utf-8') as f:
-                json.dump({'level': self.level, 'exp': self.exp, 'food': self.food,
-                           'last_food_time': self.last_food_time, 'lover_mode': self.lover_mode}, f, ensure_ascii=False)
-        except Exception:
-            pass
-
-    def _offline_food(self):
-        elapsed = time.time() - self.last_food_time
-        new_food = int(elapsed // 300)
-        if new_food > 0:
-            self.food = min(30, self.food + new_food)
-            self.last_food_time = time.time()
-
-    def tick_food(self):
-        now = time.time()
-        if now - self.last_food_time >= 300:
-            self.food = min(30, self.food + 1)
-            self.last_food_time = now
-            self.save()
-
-    def can_feed(self):
-        return self.food > 0 and self.level < 20
-
-    def feed(self):
-        if not self.can_feed():
-            return False, 0
-        self.food -= 1
-        self.exp += 10
-        new_level = 0
-        while self.level < 20 and self.exp >= self.level * 100:
-            self.exp -= self.level * 100
-            self.level += 1
-            new_level = self.level
-        self.save()
-        return True, new_level
-
-    def exp_needed(self):
-        if self.level >= 20:
-            return 0
-        return self.level * 100
+        super().__init__(growth_data_path())
 
 
-class AffectionManager:
+class AffectionManager(_AffectionManagerCore):
+    """好感度系统 —— 逻辑已抽到 pet_core，这里只负责定位存档路径。"""
+
     def __init__(self):
-        self.affection = 0
-        self._date = datetime.now().strftime('%Y-%m-%d')
-        self._feed_count = 0
-        self._interact_count = 0
-        self._online_minutes = 0
-        self.load()
-
-    def load(self):
-        try:
-            with open(growth_data_path(), 'r', encoding='utf-8') as f:
-                d = json.load(f)
-            self.affection = d.get('affection', 0)
-            self._date = d.get('date', self._date)
-            self._feed_count = d.get('feed_count', 0)
-            self._interact_count = d.get('interact_count', 0)
-        except Exception:
-            pass
-        if self._date != datetime.now().strftime('%Y-%m-%d'):
-            self._date = datetime.now().strftime('%Y-%m-%d')
-            self._feed_count = 0
-            self._interact_count = 0
-
-    def save(self):
-        try:
-            with open(growth_data_path(), 'r', encoding='utf-8') as f:
-                d = json.load(f)
-        except Exception:
-            d = {}
-        d.update({'affection': self.affection, 'date': self._date,
-                  'feed_count': self._feed_count, 'interact_count': self._interact_count})
-        try:
-            with open(growth_data_path(), 'w', encoding='utf-8') as f:
-                json.dump(d, f, ensure_ascii=False)
-        except Exception:
-            pass
-
-    def on_feed(self):
-        if self._feed_count < 15:
-            self.affection = min(100, self.affection + 2)
-            self._feed_count += 1
-            self.save()
-
-    def on_interact(self):
-        if self._interact_count < 20:
-            self.affection = min(100, self.affection + 1)
-            self._interact_count += 1
-            self.save()
-
-    def on_online(self):
-        self._online_minutes += 1
-        if self._online_minutes % 10 == 0:
-            self.affection = min(100, self.affection + 1)
-            self.save()
-
-
-def get_affection_tier(affection):
-    if affection >= 100:
-        return '倾心', 5
-    elif affection >= 80:
-        return '心动', 4
-    elif affection >= 50:
-        return '亲近', 3
-    elif affection >= 20:
-        return '熟悉', 2
-    else:
-        return '疏离', 1
+        super().__init__(growth_data_path())
 
 
 class VoiceManagerV10(QObject):

@@ -1,0 +1,8 @@
+# 运行时依赖（桌宠本体）
+#
+# 只有 PyQt5 一个直接依赖。PyQt5 自带 QtMultimedia（语音播放）
+# 与 QtSvg（菜单图标渲染），无需额外安装。
+#
+# 注意：QtMultimedia 需要系统有音频后端。Windows 上开箱可用；
+# Linux 跑 CI 时建议装 libegl1 / libpulse0，否则 QApplication 初始化会失败。
+PyQt5==5.15.11

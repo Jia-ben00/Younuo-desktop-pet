@@ -1,0 +1,7 @@
+# 开发/测试依赖
+#
+# 单元测试只覆盖 pet_core（纯逻辑层），刻意不 import PyQt5 ——
+# 这样 CI 不必安装 Qt、也不需要有图形环境，几十秒就能跑完。
+-r requirements.txt
+
+pytest>=7.0

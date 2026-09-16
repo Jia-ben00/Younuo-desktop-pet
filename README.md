@@ -1,288 +1,255 @@
-# 尤诺团子桌面宠物 · 开发全记录
+# 尤诺团子 · Windows 桌面宠物
 
-> 《鸣潮》角色尤诺（团子形态）Windows 桌面宠物程序
-> 从 V1 到 V10，历经 10 个版本迭代，完整记录开发过程与踩坑经验
+[![smoke](https://github.com/Jia-ben00/Younuo-desktop-pet/actions/workflows/smoke.yml/badge.svg)](https://github.com/Jia-ben00/Younuo-desktop-pet/actions/workflows/smoke.yml)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
+[![PyQt5](https://img.shields.io/badge/PyQt5-5.15-green)](https://pypi.org/project/PyQt5/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
+基于 PyQt5 的 Windows 桌面宠物：透明无边框窗口常驻桌面，支持拖拽 / 缩放 / 右键菜单 /
+等级成长 / 好感度系统 / 39 句语音互动，全部渲染与状态管理都在本地完成。
 
-## 项目简介
-
-尤诺团子是一个基于 PyQt5 的 Windows 桌面宠物程序，以《鸣潮》角色「尤诺」的 Q 版团子形象常驻桌面。支持鼠标拖拽、滚轮缩放、右键菜单、等级成长、好感度系统、39 句尤诺声线语音等功能。
-
-**核心人设**：七丘四方殿谕女，诞生于月食之时，傲娇系少女，嘴硬心软，口头禅「哼，这种程度……我当然早就预见啦。」
-
----
-
-## 功能特性
-
-### 基础功能
-- 透明无边框窗口，始终置顶
-- 左键拖拽移动位置
-- 滚轮调整大小
-- 右键菜单（月夜星空主题）
-- 托盘图标
-
-### 成长系统（V10 新增）
-- **等级系统**：Lv 1-20，喂食月亮糕获得经验
-- **月亮糕**：每 5 分钟产出 1 个，上限 30 个，离线累积
-- **好感度系统**：0-100，分 5 档（疏离/熟悉/亲近/心动/倾心）
-- **告白解锁**：Lv20 + 好感 100 双条件触发
-- 数据持久化：`yuno_v10_data.json`
-
-### 语音系统
-- 39 句尤诺声线语音（傲娇系少女音）
-- 7 状态 × 5 档好感度 = 35 句互动台词
-- 升级语音 + 告白语音 3 句
-- 语音开关控制
-- 触发新语音自动打断上一条
-
-### 形象系统
-- 6 张 design assets 静态形象
-- peeking 偷看动画
-- 每 10 秒随机切换形象
-- 7 种情绪状态对应不同形象
+**完整走过了 V1 → V10 十个版本的迭代**，每一版的取舍与踩坑都保留在
+[版本历史](#版本历史) 与 [`玩法说明.md`](玩法说明.md) 里。
 
 ---
 
-## 版本历史
+## 目录
 
-### V1 · 基础桌宠
-- 透明窗口、无边框、始终置顶
-- 左键拖拽、滚轮缩放
-- 右键菜单：调整大小、置顶开关、退出
-- 鼠标/键盘动作同步
-
-### V2 · 人设 + 语音
-- 加入尤诺人设和六情绪系统
-- AI TTS 实时语音（方案 A：音色描述生成）
-- 动态协议 → Live2D 参数映射
-- 语气词库：摸头/戳脸/拖拽/喂食/晚安
-
-### V3 · 2.5D 渲染
-- 尝试 2.5D 模型渲染
-- 三视图 + 3D 动态建模
-- 稳定性问题：容易卡退
-
-### V4 · Bongo Cat 方向
-- 切换到 Bongo Cat 架构
-- 从 GitHub 获取尤诺表情包
-- 接入 LLM API + TTS 实时语音
-- 按【情绪/动作】标签驱动动画
-
-### V5 · 自绘团子界面
-- 自绘团子主界面
-- 语气词重制（"呀"→"哇塞"，加长增加灵动感）
-- 鼠标跟随功能
-- 部位点击（头/脸/身体）
-- 使用说明界面
-
-### V6 · 月夜星空主题菜单
-- 深蓝紫渐变背景 + 金色星光
-- 毛玻璃圆角面板
-- 金色月华渐变胶囊主按钮
-- 满月/月牙造型开关
-- 三区分组：互动区/外观区/系统区
-
-### V7 · 稳定性优化
-- 菜单实例复用（不每次新建）
-- 30 秒稳定性测试：0 崩溃
-- 30 次菜单打开关闭测试：0 崩溃
-- 修复 QProgressBar 未导入导致的崩溃
-
-### V8 · 形象扩展
-- 从互联网搜索 4 张 Q 版形象
-- 删除 tsundere 表情
-- 互动区增加翘腿动作
-- 菜单左上角添加尤诺团子形象
-
-### V9 · 随机形象池
-- 主桌宠用 design assets 6 张 + peeking 动画
-- 每 10 秒随机切换形象
-- 测试按钮依次显示 7 张图
-- 稳定版基准：桌宠 200×230，菜单宽度 260，内存 8.4MB
-
-### V10 · 成长系统 + 语音修复
-- 基于 V9 稳定架构重新实现
-- GrowthManager：等级/经验/月亮糕
-- AffectionManager：好感度 5 档
-- 39 句尤诺声线语音
-- 语音方案最终确定为 winsound
-- 菜单去掉"跟我说话"，添加成长区
-- 互动区改为喂食/玩耍/戳脸
+- [快速开始](#快速开始)
+- [功能](#功能)
+- [架构：为什么把逻辑和 UI 拆开](#架构为什么把逻辑和-ui-拆开)
+- [测试](#测试)
+- [一个真实的 bug：喂食会清空好感度](#一个真实的-bug喂食会清空好感度)
+- [版本历史](#版本历史)
+- [技术栈](#技术栈)
+- [语音方案对比](#语音方案对比与最终选择)
+- [崩溃根因总结](#崩溃根因总结避坑指南)
+- [项目结构](#项目结构)
+- [素材与版权](#素材与版权)
 
 ---
 
-## 技术栈
+## 快速开始
 
-| 组件 | 技术 |
-|------|------|
-| GUI 框架 | PyQt5 5.15.11 |
-| 打包工具 | PyInstaller 6.22.2 |
-| 语音播放 | winsound（Python 标准库） |
-| 语音生成 | Seed Audio 1.0（TTS） |
-| 图像处理 | PIL / 自绘 |
-| 数据存储 | JSON |
-| 构建环境 | Python 3.x + venv |
+环境要求：Python 3.9+，Windows（依赖 `winsound` 做语音兜底）。
 
----
-
-## 语音方案对比与最终选择
-
-### 方案对比
-
-| 方案 | 优点 | 缺点 | 结果 |
-|------|------|------|------|
-| QSoundEffect | Qt 原生，API 简单 | V10 的 WAV（40000Hz/16位/立体声）导致堆崩溃 0xC0000374 | ❌ 崩溃 |
-| QMediaPlayer | 支持格式多 | 打包后没声音 | ❌ 无声 |
-| ctypes + winmm | 底层控制 | PyInstaller 打包后启动崩溃（_ctypes DLL 加载失败） | ❌ 启动崩溃 |
-| **winsound** | Python 标准库，零依赖，Windows 原生 | 仅支持 WAV，功能简单 | ✅ **最终选择** |
-
-### 关键发现
-- V5 使用 QSoundEffect 能正常工作，是因为 V5 的 WAV 格式不同
-- V10 的 WAV 是 40000Hz/16 位/立体声，QSoundEffect 不兼容
-- winsound 直接调用 Windows PlaySound API，最稳定
-
-### winsound 用法
-```python
-import winsound
-# 播放（异步）
-winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
-# 停止
-winsound.PlaySound(None, winsound.SND_PURGE)
-```
-
----
-
-## 崩溃根因总结（避坑指南）
-
-以下是开发过程中遇到的所有崩溃根因，**必须继续避免**：
-
-| 根因 | 现象 | 解决方案 |
-|------|------|----------|
-| QSoundEffect 播放 WAV | 随机崩溃（堆损坏 0xC0000374） | 改用 winsound |
-| ctypes 导入 | PyInstaller 打包后启动崩溃 | 禁用 ctypes |
-| QMediaPlayer | 不崩溃但没声音 | 改用 winsound |
-| SmoothPixmapTransform | 绘制时崩溃 | 使用 FastTransformation |
-| p.rotate() | 随机 0xC0000409 崩溃 | 避免旋转绘制 |
-| QRadialGradient 阴影 | 绘制时崩溃 | 避免径向渐变 |
-| QPointF/QRectF 浮点绘制 | 崩溃 | 使用整数类型 |
-| QProgressBar 未导入 | 菜单打开即崩溃 | 确保导入所有使用的组件 |
-| 菜单每次新建 | 30 次测试后内存泄漏 | 菜单实例复用 |
-
----
-
-## 项目结构
-
-```
-桌宠/
-├── v10/                    # V10 最新版本
-│   ├── src/
-│   │   ├── iuno_pet_v10.py    # 主程序
-│   │   └── v7_menu.py         # 菜单
-│   ├── assets/
-│   │   ├── stickers/          # 形象图片
-│   │   ├── voice_v10/         # 39 个 WAV 语音
-│   │   ├── icons/             # 图标
-│   │   └── animations/        # 动画
-│   └── test_*.py              # 测试脚本
-├── v9/                     # V9 稳定版（参考基准）
-├── v5/                     # V5（QSoundEffect 参考）
-├── bongo-cat/              # Bongo Cat 分支（PySide6）
-├── dist/
-│   ├── 尤诺桌宠v10.exe         # V10 可执行文件
-│   ├── 尤诺桌宠v9.exe          # V9 可执行文件
-│   └── voice_v10/             # 语音文件（必须与 EXE 同目录）
-├── design assets/          # 设计素材
-└── 玩法说明.md              # 玩法说明
-```
-
----
-
-## 安装与使用
-
-### 直接运行
-1. 下载 `dist/尤诺桌宠v10.exe`
-2. 确保 `voice_v10/` 文件夹与 EXE 在同一目录
-3. 双击 EXE 运行
-
-### 从源码运行
 ```bash
-# 创建虚拟环境
-python -m venv venv
-venv\Scripts\activate
+# 1. 安装依赖
+pip install -r requirements.txt
 
-# 安装依赖
-pip install PyQt5==5.15.11
-
-# 运行
+# 2. 运行
 cd v10/src
 python iuno_pet_v10.py
 ```
 
-### 打包 EXE
-```bash
-# 使用 spec 文件打包
-cd C:\Users\bing\iuno_build_v7
-pyinstaller iuno_v7.spec --noconfirm --clean
+跑测试（**不需要 PyQt5、不需要图形环境**）：
 
-# 复制到 dist
-copy dist\尤诺桌宠v10.exe C:\Users\bing\Desktop\桌宠\dist\
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
 ```
 
----
+> EXE 打包素材（v3–v6，共约 228MB）已从仓库移除 —— 构建产物不该进版本库。
+> 需要可执行文件请按 [打包](#打包-exe) 一节自行构建。
 
-## 互动说明
+## 功能
 
-| 操作 | 效果 |
-|------|------|
-| 左键单击 | 戳脸互动（呆萌语音） |
-| 左键拖拽 | 移动 + 害羞语音 |
-| 右键单击 | 打开菜单 |
-| 滚轮 | 调整大小 |
-| 菜单→喂食 | 消耗月亮糕 +10 经验 |
-| 菜单→玩耍 | 开心状态 + 语音 |
-| 菜单→戳脸 | 呆萌状态 + 语音 |
+| 模块 | 说明 |
+| --- | --- |
+| **窗口** | 透明无边框、始终置顶、托盘图标；左键拖拽移动、滚轮缩放（0.4x–3.0x） |
+| **右键菜单** | 月夜星空主题，15 个 SVG 图标（V6 起） |
+| **情绪系统** | 6 种情绪单帧形象 + `QPainter` 程序驱动形变（呼吸 / 弹跳 / 抖动 / 拉伸 / 侧转） |
+| **成长系统** | Lv 1–20；喂月亮糕得经验；月亮糕每 5 分钟产出 1 个，上限 30，支持离线累积 |
+| **好感度** | 0–100 分 5 档（疏离 / 熟悉 / 亲近 / 心动 / 倾心）；带每日上限防刷 |
+| **语音** | 39 句语音；7 状态 × 5 档好感度联动；`edge-tts` 优先，`winsound` 兜底 |
+| **LLM 对话** | OpenAI 兼容接口（默认 DeepSeek）；模型用 `【情绪：开心】` 这类标记返回结构化指令 |
+| **持久化** | 成长与好感度存同一个 `yuno_v10_data.json` |
 
----
+**核心人设**：七丘四方殿谕女，诞生于月食之时，傲娇系少女，嘴硬心软，
+口头禅「哼，这种程度……我当然早就预见啦。」
 
-## 7 种状态 × 5 档好感度
+## 架构：为什么把逻辑和 UI 拆开
 
-| 状态 | 形象 | 语音文件 |
-|------|------|----------|
-| 翘腿 | design_1 | qiaotui_1~5.wav |
-| 害羞 | design_2 | haixiu_1~5.wav |
-| 撒娇 | design_3 | sajiao_1~5.wav |
-| 开心 | design_happy | kaixin_1~5.wav |
-| 伤心 | design_sad | shangxin_1~5.wav |
-| 呆萌 | design_surprised | daimeng_1~5.wav |
-| 偷看 | peeking 动画 | toukan_1~5.wav |
-| 升级 | - | levelup.wav |
-| 告白 | - | gaobai_1~3.wav |
+V10 做了一次结构重构 —— **把纯逻辑从 GUI 主程序里抽出来**：
 
-好感度档位：疏离(1) / 熟悉(2) / 亲近(3) / 心动(4) / 倾心(5)
+```
+v10/src/
+├── pet_core.py        # 纯逻辑：等级曲线 / 好感度 / 台词解析 / 存档读写
+│                      #   零 Qt 依赖 → 可在任何环境用 pytest 直接测
+├── iuno_pet_v10.py    # GUI 层：窗口、绘制、事件、菜单（import PyQt5）
+└── v7_menu.py         # 右键菜单组件
+```
 
----
+原先所有逻辑都写在 `iuno_pet_v10.py` 里，而该模块顶层 `import PyQt5`，
+导致**任何逻辑都无法在没有图形环境的机器上测试**（CI 里装 Qt 又慢又需要显示环境）。
+拆开后：
 
-## 开发心得
+- 单元测试不需要 PyQt5、不需要图形环境，CI 里一秒内跑完；
+- 数值平衡（升级曲线、好感度上限）可以脱离 GUI 单独验证；
+- 存档格式有唯一入口（`merge_save`），损坏风险可控。
 
-1. **稳定性优先**：V3/V4 追求炫技导致频繁崩溃，V7 后专注稳定性，30 秒 0 崩溃
-2. **语音方案选择**：不要迷信 Qt 多媒体，winsound 虽然简单但最稳定
-3. **菜单复用**：每次新建菜单会导致内存泄漏和崩溃，实例复用是关键
-4. **导入检查**：所有使用的 Qt 组件必须显式导入，否则打包后崩溃
-5. **避免浮点绘制**：PyQt5 在某些系统上浮点类型绘制会崩溃
-6. **数据持久化**：成长数据用 JSON 存储，简单可靠
-7. **版本管理**：每个版本独立文件夹，便于回退和对比
+主程序通过薄封装复用这套逻辑，行为不变：
 
----
+```python
+class GrowthManager(_GrowthManagerCore):
+    """逻辑已抽到 pet_core，这里只负责定位存档路径。"""
+    def __init__(self):
+        super().__init__(growth_data_path())
+```
 
-## 许可证
+重构后主程序从 1436 行降到 1310 行，逻辑集中到 `pet_core.py` 的 326 行。
 
-本项目仅供学习交流使用。尤诺角色版权归库洛游戏所有，语音为 AI 生成，不可商用。
+## 测试
 
----
+```bash
+python -m pytest tests/ -v
+```
+
+**56 个测试，全部通过**，覆盖四个层面：
+
+| 测试组 | 覆盖内容 |
+| --- | --- |
+| `TestParseReply` | 台词解析的正则边界：空正文回退、未知情绪兜底、全/半角冒号、标记剥离 |
+| `TestExpCurve` / `TestAffectionTier` | 升级曲线、好感度分档边界（19/20、49/50、79/80、99/100） |
+| `TestGrowthManager` / `TestAffectionManager` | 喂食/互动/在线计时、每日上限、跨天重置、离线月亮糕累积（含零头保留） |
+| `TestSaveFile` | 存档健壮性：文件缺失/损坏不崩、原子写无残留、**跨管理器字段不互相覆盖** |
+
+CI（`.github/workflows/smoke.yml`）在每次 push 时跑两件事：单元测试，以及
+V1–V10 全部历史版本的语法检查（防止误改坏历史快照）。
+
+## 一个真实的 bug：喂食会清空好感度
+
+这是开发 V10 时发现的缺陷，也是本项目测试里最关键的一条回归用例。
+
+**现象**：喂一次食，好感度从 42 直接归零。
+
+**原因**：成长系统和好感度系统共用同一个存档文件 `yuno_v10_data.json`，
+但两个管理器的写入方式不一致 ——
+
+```python
+# 成长：全量覆盖，只写自己的 5 个字段
+json.dump({'level': ..., 'exp': ..., 'food': ...}, f)
+
+# 好感度：读-改-写，保留别人的字段
+d = json.load(f); d.update({...}); json.dump(d, f)
+```
+
+于是每次喂食（触发成长写入）都会把好感度、每日计数一并抹掉。
+
+**修复**：抽出唯一的存档写入口 `merge_save()`，强制所有写入走
+read-modify-write，并改用「先写临时文件再 `os.replace`」的原子写避免写坏存档。
+
+**回归测试**（`tests/test_pet_core.py::test_feeding_must_not_wipe_affection`）：
+先加满好感度、再喂食，断言好感度字段依然存在。这条测试在修复前的实现上会失败 ——
+它与另一条反方向的用例（`test_affection_write_does_not_wipe_growth`）共同锁住这个不变量。
+
+## 版本历史
+
+十次迭代，每次解决一个具体问题：
+
+| 版本 | 主题 | 关键变化 |
+| --- | --- | --- |
+| **V1** | 基础桌宠 | 透明置顶窗口 + 图片显示 + 拖拽 |
+| **V2** | 人设 + 语音 | 人设卡、语音触发、`winsound` 播放 |
+| **V3** | 2.5D 渲染 | 尝试透视形变 |
+| **V4** | Bongo Cat 方向 | 交互反馈探索 |
+| **V5** | 自绘团子界面 | 放弃截图表情包，改 `QPainter` 自绘 + peeking 动画 |
+| **V6** | 月夜星空菜单 | 15 个 SVG 图标菜单；`QSvgRenderer` 渲染 |
+| **V7** | 稳定性优化 | 全 `QThread` 异步；菜单拆成独立模块 |
+| **V8** | 形象扩展 | 贴纸素材扩充 |
+| **V9** | 随机形象池 | 随机切换 + 测试模式 |
+| **V10** | **成长系统 + 逻辑分层** | 等级 / 好感度 / 存档原子写；**逻辑抽到 `pet_core.py` 并补测试** |
+
+各版本的详细动机见 `v*/docs/` 目录（V2/V3 保留了人设卡与动态协议设计文档）。
+
+**7 种状态 × 5 档好感度**：同一状态在不同好感度下会挑选不同台词，
+因此同样「戳一下」，疏离期和倾心期的回应完全不同。
+
+## 技术栈
+
+- **GUI**：PyQt5 5.15（`QWidget` 无边框窗口 + `QPainter` 自绘）
+- **多媒体**：`QSoundEffect`（低延迟音效）、`winsound`（兜底）
+- **异步**：`QThread` 承载 LLM 请求与 TTS 合成，避免阻塞 UI
+- **TTS**：`edge-tts` 优先，失败回退 Windows SAPI
+- **LLM**：OpenAI 兼容接口，通过结构化标记解析情绪/动作/特效
+- **测试**：pytest（仅覆盖纯逻辑层，不依赖 GUI）
+
+## 语音方案对比与最终选择
+
+试过三种方案，最终选择 **`winsound` 为主、`QSoundEffect` 备选（V5 参考）**：
+
+| 方案 | 优点 | 问题 |
+| --- | --- | --- |
+| `QSoundEffect` | 延迟低、支持音量控制 | 在 Windows 上偶发不播放；对象被 GC 后中断 |
+| `winsound.PlaySound` | 系统原生、稳定 | 无法调音量；`SND_ASYNC` 下无法精确控制停止 |
+| `edge-tts` 实时合成 | 音质好 | 需要联网，首次延迟高 |
+
+**最终策略**：`edge-tts` 生成后缓存为 WAV，播放走 `winsound`（`SND_ASYNC |
+SND_FILENAME`），保证「触发新语音自动打断上一条」；音量控制交给系统混音。
+
+```python
+winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)  # 异步播放
+winsound.PlaySound(None, winsound.SND_PURGE)                          # 立即停止
+```
+
+## 崩溃根因总结（避坑指南）
+
+迭代中踩过的坑，留档备查：
+
+1. **`QSoundEffect` 对象被 GC 回收** → 声音播放到一半中断。
+   必须持有引用（存到 `self`），不能只放在局部变量里。
+2. **在 `QThread` 里直接操作 UI** → 随机崩溃。
+   跨线程只能通过信号槽传递。
+3. **`QPainter` 在 `paintEvent` 外使用** → 绘制错乱。
+   所有自定义绘制都收敛到 `paintEvent` 内。
+4. **资源路径硬编码** → 打包成 EXE 后找不到素材。
+   统一走 `resource_path()`，兼容 PyInstaller 的 `sys._MEIPASS`。
+5. **存档写入非原子** → 进程被杀时存档损坏，下次启动丢全部进度。
+   改为临时文件 + `os.replace`。
+
+## 项目结构
+
+```
+.
+├── v10/                      # 最新版本（推荐从这里读代码）
+│   ├── src/
+│   │   ├── pet_core.py       # 纯逻辑（无 Qt 依赖，有测试覆盖）
+│   │   ├── iuno_pet_v10.py   # GUI 主程序
+│   │   └── v7_menu.py        # 右键菜单
+│   └── assets/               # 形象 / 语音 / 图标 / 动画
+├── tests/
+│   └── test_pet_core.py      # 56 个单元测试
+├── .github/workflows/
+│   └── smoke.yml             # CI：单元测试 + 历史版本语法检查
+├── v1/ … v9/                 # 历史版本快照（仅供对照，不再维护）
+├── requirements.txt          # 运行时依赖
+├── requirements-dev.txt      # 开发依赖
+└── 玩法说明.md                # 玩法与人设说明
+```
+
+### 打包 EXE
+
+```bash
+pip install pyinstaller
+cd v10/src
+pyinstaller --noconfirm --clean --windowed \
+  --add-data "../assets;assets" \
+  --name "尤诺桌宠v10" iuno_pet_v10.py
+```
+
+构建产物落在 `dist/`（已在 `.gitignore` 中忽略）。
+
+## 素材与版权
+
+- 角色「尤诺」版权归**库洛游戏**所有，本项目为个人学习作品。
+- 语音素材由 AI 生成（Seed Audio 1.0），仅供学习交流。
+- **不可商用。**
+
+本仓库的 MIT 许可证（见 [LICENSE](LICENSE)）仅覆盖自行编写的源代码，
+不包含角色形象与语音素材。
 
 ## 致谢
 
-- 《鸣潮》库洛游戏 - 尤诺角色
-- Seed Audio 1.0 - 语音生成
-- PyQt5 - GUI 框架
+- 《鸣潮》库洛游戏 —— 尤诺角色
+- Seed Audio 1.0 —— 语音生成
+- PyQt5 —— GUI 框架
